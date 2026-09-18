@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public struct ProcessResult: Equatable, Sendable {
@@ -17,6 +18,10 @@ public enum ProcessRunnerError: Error, Equatable {
     case failedToLaunch(String)
     /// The process did not exit within the deadline and was terminated.
     case timedOut(command: String, timeout: TimeInterval)
+    /// The child exited 0 without reading the input the app sent (the stdin
+    /// write failed). Distinct from launch failure: the child did run, it
+    /// just never consumed the delivered input.
+    case inputWriteFailed(command: String)
 }
 
 /// Runs a subprocess and captures its exit code, stdout, and stderr.
@@ -27,7 +32,15 @@ public enum ProcessRunnerError: Error, Equatable {
 /// slices, whose output (`list --format json`, clone progress) can exceed the
 /// pipe buffer.
 public struct ProcessRunner: Sendable {
-    public init() {}
+    public init() {
+        // Writing to a pipe whose reader already exited raises SIGPIPE and
+        // kills the writer process by default (verified on this host: exit
+        // 141). The only pipe writes this app performs are this runner's
+        // stdin deliveries, so ignoring SIGPIPE process-wide (idempotent) is
+        // deliberate and safe: the failure becomes a catchable CocoaError
+        // that `run` classifies.
+        signal(SIGPIPE, SIG_IGN)
+    }
 
     /// Default deadline for a subprocess. tart's quick commands (`--version`,
     /// `list`, `get`) are well under this; long operations use dedicated
@@ -38,19 +51,25 @@ public struct ProcessRunner: Sendable {
     public func run(_ executable: String,
                     _ arguments: [String],
                     environment: [String: String] = [:],
-                    timeout: TimeInterval = ProcessRunner.defaultTimeout) throws -> ProcessResult {
+                    timeout: TimeInterval = ProcessRunner.defaultTimeout,
+                    input: String? = nil) throws -> ProcessResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
-        if !environment.isEmpty {
-            var env = ProcessInfo.processInfo.environment
-            for (key, value) in environment { env[key] = value }
-            process.environment = env
-        }
+        process.environment = ProcessEnvironment.merged(overrides: environment)
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+
+        let stdinPipe: Pipe?
+        if input != nil {
+            let pipe = Pipe()
+            process.standardInput = pipe
+            stdinPipe = pipe
+        } else {
+            stdinPipe = nil
+        }
 
         let exited = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in exited.signal() }
@@ -61,10 +80,27 @@ public struct ProcessRunner: Sendable {
             throw ProcessRunnerError.failedToLaunch(executable)
         }
 
+        // Drains start BEFORE the stdin write: a child that emits more than
+        // the 64 KB pipe buffer while the parent blocks in `write` cannot
+        // deadlock (the readability handlers drain both pipes concurrently).
         let stdoutDrain = Drain(handle: stdoutPipe.fileHandleForReading)
         let stderrDrain = Drain(handle: stderrPipe.fileHandleForReading)
         stdoutDrain.start()
         stderrDrain.start()
+
+        var inputWriteFailed = false
+        if let stdinPipe, let input {
+            // EPIPE tolerance: with SIGPIPE ignored, a write to
+            // a pipe the child already closed throws a catchable CocoaError.
+            // A fast-failing child's own exit code + stderr are the truth;
+            // only exit-0-with-failed-write is an anomaly (classified below).
+            do {
+                try stdinPipe.fileHandleForWriting.write(contentsOf: Data(input.utf8))
+            } catch {
+                inputWriteFailed = true
+            }
+            try? stdinPipe.fileHandleForWriting.close()
+        }
 
         let command = ([executable] + arguments).joined(separator: " ")
         if exited.wait(timeout: .now() + timeout) == .timedOut {
@@ -76,10 +112,22 @@ public struct ProcessRunner: Sendable {
             }
             throw ProcessRunnerError.timedOut(command: command, timeout: timeout)
         }
+        if Self.inputDeliveryShouldFail(exitCode: process.terminationStatus,
+                                        writeFailed: inputWriteFailed) {
+            throw ProcessRunnerError.inputWriteFailed(command: command)
+        }
         return ProcessResult(
             exitCode: process.terminationStatus,
             stdout: stdoutDrain.finish(),
             stderr: stderrDrain.finish())
+    }
+
+    /// Pure input-delivery classification: a failed stdin write
+    /// is a failure only when the child still exits 0 — the credential never
+    /// reached tart yet tart claimed success. Any non-zero exit is the
+    /// child's own failure and is returned verbatim.
+    static func inputDeliveryShouldFail(exitCode: Int32, writeFailed: Bool) -> Bool {
+        writeFailed && exitCode == 0
     }
 
     /// Incrementally drains one pipe: the readability handler appends each

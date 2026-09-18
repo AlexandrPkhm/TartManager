@@ -6,7 +6,6 @@ struct PrerequisiteBanner: View {
     let info: TartPrerequisiteGuidanceInfo
     let isChecking: Bool
     let onRecheck: () -> Void
-    @State private var copied = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -25,7 +24,7 @@ struct PrerequisiteBanner: View {
                         .background(
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(.quaternary.opacity(0.5)))
-                    Button(copied ? "Copied" : "Copy") { copyCommand() }
+                    CopyButton(value: info.command)
                         .buttonStyle(.borderless)
                     Button(isChecking ? "Checking…" : "Re-check") { onRecheck() }
                         .buttonStyle(.borderless)
@@ -37,15 +36,5 @@ struct PrerequisiteBanner: View {
         .padding(12)
         .background(.orange.opacity(0.12))
         .overlay(alignment: .top) { Rectangle().fill(.orange).frame(height: 3) }
-    }
-
-    private func copyCommand() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(info.command, forType: .string)
-        copied = true
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            copied = false
-        }
     }
 }

@@ -12,6 +12,7 @@ let package = Package(
         .target(name: "TartKit"),
         .executableTarget(name: "TartManager", dependencies: ["TartKit"]),
         .testTarget(name: "TartKitTests", dependencies: ["TartKit"]),
+        .testTarget(name: "TartManagerTests", dependencies: ["TartManager", "TartKit"]),
     ],
     swiftLanguageModes: [.v5]
 )
