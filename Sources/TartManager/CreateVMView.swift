@@ -17,7 +17,7 @@ let ociPresets: [OCIPreset] = [
     OCIPreset(label: "macOS Sonoma · base", reference: "ghcr.io/cirruslabs/macos-sonoma-base:latest"),
 ]
 
-private enum CreateMode: Hashable {
+enum CreateMode: Hashable {
     case image
     case ipsw
 }
@@ -38,6 +38,11 @@ struct CreateVMView: View {
     @State private var ipswPath = ""
     @State private var diskSizeText = "50"
     @State private var confirmingLowSpace = false
+
+    init(mode: CreateMode = .image, imageReference: String = "") {
+        _mode = State(initialValue: mode)
+        _reference = State(initialValue: imageReference)
+    }
 
     var body: some View {
         Form {
@@ -75,16 +80,16 @@ struct CreateVMView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
+        .frame(width: 480, height: 440)
         .onAppear { model.invalidateStorageProbeCache() }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-            }
-            ToolbarItem(placement: .confirmationAction) {
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
                 Button(mode == .image ? "Download & Create" : "Install from IPSW") { start() }
                     .disabled(!canStart)
-            }
+                    .buttonStyle(WorkspaceButtonStyle(primary: true)).keyboardShortcut(.defaultAction)
+            }.padding(20)
         }
         .confirmationDialog("Low disk space",
                             isPresented: $confirmingLowSpace,

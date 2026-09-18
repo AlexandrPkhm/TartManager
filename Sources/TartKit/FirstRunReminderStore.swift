@@ -8,7 +8,10 @@ import Foundation
 /// cancelled reminder or a failed run keeps reminding, and exactly one
 /// successful first run makes the reminder one-time. Flags are persisted in
 /// UserDefaults (injected for tests) and survive app relaunches.
-public struct FirstRunReminderStore: Sendable {
+/// `UserDefaults` is safe to use from multiple threads for the independent reads
+/// and writes performed here, but Foundation does not declare it `Sendable`. Keep
+/// the unchecked boundary local to this immutable wrapper.
+public struct FirstRunReminderStore: @unchecked Sendable {
     static let key = "firstRunReminderVMNames"
 
     private let defaults: UserDefaults

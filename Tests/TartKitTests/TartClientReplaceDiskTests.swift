@@ -60,10 +60,10 @@ import Foundation
         // (drained deterministically before waitForExit returns, Issue 9).
         let stub = StubBinary.make(script: "#!/bin/sh\necho 'copying disk'\nexit 0\n")
         let client = TartClient(binaryPath: stub)
-        var collected = ""
+        let collected = LockedValue("")
         try client.replaceDisk(name: "vm-a", withPath: "/images/clean.img") { chunk in
-            collected += chunk
+            collected.withValue { $0 += chunk }
         }
-        #expect(collected.contains("copying disk"))
+        #expect(collected.value.contains("copying disk"))
     }
 }

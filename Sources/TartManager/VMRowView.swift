@@ -8,21 +8,22 @@ struct VMRowView: View {
     @EnvironmentObject var suspendCoordinator: SuspendCoordinator
 
     var body: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: symbolName)
                 .foregroundStyle(entry.isLocal && entry.running ? .green : .secondary)
+                .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
-                Text(entry.isLocal ? entry.state : "registry image — clone to use")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(entry.isLocal ? entry.state.capitalized : "Cached OCI image")
+                    .font(.system(size: 11))
+                    .foregroundStyle(WorkspaceStyle.muted)
+                    .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 0)
             if entry.isLocal {
-                // Unit formatting lives here, not in the model.
-                Text("Disk \(Int(entry.diskSize)) GB")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 if suspendCoordinator.suspending.contains(entry.name) {
                     ProgressView()
                         .controlSize(.small)
@@ -32,45 +33,15 @@ struct VMRowView: View {
                         .controlSize(.small)
                         .help("Stopping…")
                 } else if entry.running {
-                    // The green dot stays as the running badge; the Suspend
-                    // button joins the Stop button.
                     Image(systemName: "circle.fill")
                         .font(.caption2)
                         .foregroundStyle(.green)
                         .help(entry.state)
-                    Button {
-                        Task { await model.suspend(vm: entry) }
-                    } label: {
-                        Label("Suspend", systemImage: "pause.fill")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Suspend — the session resumes later via Resume")
-                    Button {
-                        Task { await model.stop(vm: entry) }
-                    } label: {
-                        Label("Stop", systemImage: "stop.fill")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Stop this VM (graceful shutdown, forced after 30 s)")
-                } else {
-                    // Resume vs Run per the Task 1 mapping; the issue's
-                    // fallback offers Resume on both.
-                    let actionLabel = entry.primaryActionLabel(
-                        distinguishesSuspended:
-                            SuspendedStateReporting.distinguishesSuspended)
-                    Button {
-                        Task { await model.requestRun(vm: entry) }
-                    } label: {
-                        Label(actionLabel, systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(actionLabel == "Resume"
-                          ? "Resume the suspended session (boots the VM if it is stopped)"
-                          : "Run this VM")
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
         .contextMenu {
             if entry.isLocal {
                 if entry.running

@@ -106,9 +106,9 @@ struct StorageSettingsView: View {
             Divider()
             LabeledContent("Detected tart") {
                 if let status = model.prerequisite, case .ok(let version, _) = status {
-                    Text("\(version)")
+                    Text(verbatim: "\(version)")
                 } else if let status = model.prerequisite, case .outdated(let found, _, _) = status {
-                    Text("\(found) (update required)").foregroundStyle(.orange)
+                    Text(verbatim: "\(found) (update required)").foregroundStyle(.orange)
                 } else {
                     Text("not found").foregroundStyle(.red)
                 }

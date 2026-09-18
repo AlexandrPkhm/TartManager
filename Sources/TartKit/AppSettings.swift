@@ -13,6 +13,12 @@ public struct AppSettings {
     static let sshUserKey = "sshUser"
     static let snapshotsFolderKey = "snapshotsFolder"
 
+    /// Last selected local VM, restored by identity after the first successful inventory.
+    public var selectedVMName: String? {
+        get { defaults.string(forKey: "selectedVMName") }
+        nonmutating set { defaults.set(newValue, forKey: "selectedVMName") }
+    }
+
     /// Configured tart home ("VM storage"). `nil` until onboarding completes.
     /// Set only through `AppModel.attemptChooseStorage` (validated) — see
     /// `Sources/TartManager/AppModel.swift`.

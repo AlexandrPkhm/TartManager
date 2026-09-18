@@ -36,30 +36,30 @@ import Foundation
     @Test func performDeletesArtifactInsideWindow() {
         let started = Date(timeIntervalSince1970: 1_000)
         let ended = Date(timeIntervalSince1970: 1_100)
-        var deleted: [String] = []
+        let deleted = LockedValue<[String]>([])
         let result = PartialImportCleanup.perform(
             name: "partial-junk", jobStartedAt: started, jobEndedAt: ended,
             list: { [Self.entry(accessed: Date(timeIntervalSince1970: 1_050))] },
-            delete: { deleted.append($0) },
+            delete: { name in deleted.withValue { $0.append(name) } },
             onFailure: { _ in Issue.record("unexpected failure surfaced") })
         #expect(result == .deleted)
-        #expect(deleted == ["partial-junk"])
+        #expect(deleted.value == ["partial-junk"])
     }
 
     @Test func performPreservesEntryOutsideWindowAndSurfacesNotice() {
         let started = Date(timeIntervalSince1970: 1_000)
         let ended = Date(timeIntervalSince1970: 1_100)
-        var deleted: [String] = []
-        var failures: [TartClientError] = []
+        let deleted = LockedValue<[String]>([])
+        let failures = LockedValue<[TartClientError]>([])
         let result = PartialImportCleanup.perform(
             name: "partial-junk", jobStartedAt: started, jobEndedAt: ended,
             list: { [Self.entry(accessed: Date(timeIntervalSince1970: 900))] },
-            delete: { deleted.append($0) },
-            onFailure: { failures.append($0) })
+            delete: { name in deleted.withValue { $0.append(name) } },
+            onFailure: { failure in failures.withValue { $0.append(failure) } })
         #expect(result == .preserved)
-        #expect(deleted.isEmpty)
-        #expect(failures.count == 1)
-        if case let .commandFailed(command, _, _, stderr) = failures[0] {
+        #expect(deleted.value.isEmpty)
+        #expect(failures.value.count == 1)
+        if case let .commandFailed(command, _, _, stderr) = failures.value[0] {
             #expect(command == "import-cleanup")
             #expect(stderr.contains("left untouched"))
         } else {
@@ -68,8 +68,8 @@ import Foundation
     }
 
     @Test func performSurfacesListFailureWithoutDeleting() {
-        var deleted: [String] = []
-        var failures: [TartClientError] = []
+        let deleted = LockedValue<[String]>([])
+        let failures = LockedValue<[TartClientError]>([])
         let listError = TartClientError.commandFailed(command: "list", exitCode: 2,
                                                       stdout: "", stderr: "storage unavailable")
         let result = PartialImportCleanup.perform(
@@ -77,15 +77,15 @@ import Foundation
             jobStartedAt: Date(timeIntervalSince1970: 1_000),
             jobEndedAt: Date(timeIntervalSince1970: 1_100),
             list: { throw listError },
-            delete: { deleted.append($0) },
-            onFailure: { failures.append($0) })
+            delete: { name in deleted.withValue { $0.append(name) } },
+            onFailure: { failure in failures.withValue { $0.append(failure) } })
         #expect(result == .listFailed)
-        #expect(deleted.isEmpty)
-        #expect(failures == [listError])
+        #expect(deleted.value.isEmpty)
+        #expect(failures.value == [listError])
     }
 
     @Test func performSurfacesDeleteFailure() {
-        var failures: [TartClientError] = []
+        let failures = LockedValue<[TartClientError]>([])
         let deleteError = TartClientError.commandFailed(command: "delete", exitCode: 3,
                                                         stdout: "", stderr: "cannot delete")
         let result = PartialImportCleanup.perform(
@@ -94,8 +94,8 @@ import Foundation
             jobEndedAt: Date(timeIntervalSince1970: 1_100),
             list: { [Self.entry(accessed: Date(timeIntervalSince1970: 1_050))] },
             delete: { _ in throw deleteError },
-            onFailure: { failures.append($0) })
+            onFailure: { failure in failures.withValue { $0.append(failure) } })
         #expect(result == .deleteFailed)
-        #expect(failures == [deleteError])
+        #expect(failures.value == [deleteError])
     }
 }

@@ -130,7 +130,7 @@ struct JobRowView: View {
             return "Installing “\(name)” from an IPSW"
         case .deleteVM(let name):
             return "Deleting “\(name)”"
-        case .replaceDisk(let name, let path):
+        case .replaceDisk(let name, _):
             return "Replacing the disk of “\(name)”"
         case .prune:
             return "Pruning caches"

@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var model: AppModel
     @State private var showingOnboarding = false
     @State private var showingCreate = false
+    @State private var page: WorkspacePage = .machines
     @State private var importPath: String = ""
     @State private var importSuggestedName: String = ""
 
@@ -40,20 +41,15 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            titlebar
+            WorkspaceStyle.line.frame(height: 1)
             if let status = model.prerequisite {
                 if !status.isSatisfied, let info = TartPrerequisiteGuidance.guidance(for: status) {
                     PrerequisiteBanner(info: info, isChecking: model.isCheckingPrerequisite) {
                         model.checkPrerequisite()
                     }
-                } else if case .ok(let version, _) = status {
-                    Label("tart \(version)", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.green.opacity(0.06))
+                    Divider()
                 }
-                Divider()
             } else {
                 ProgressView("Checking for tart…")
                     .padding()
@@ -61,10 +57,12 @@ struct ContentView: View {
             }
             content
                 .frame(maxHeight: .infinity)
-            Divider()
-            statusFooter
         }
-        .frame(minWidth: 640, minHeight: 420)
+        .frame(minWidth: 760, minHeight: 580)
+        .background(WorkspaceStyle.background)
+        .foregroundStyle(WorkspaceStyle.text)
+        .tint(WorkspaceStyle.accent)
+        .ignoresSafeArea(.container, edges: .top)
         .confirmationDialog("This Mac may run out of memory",
                             isPresented: Binding(
                                 get: { model.pendingRunWarning != nil },
@@ -80,28 +78,6 @@ struct ContentView: View {
                 Text(model.pendingRunWarning?.assessment.summaryText
                      ?? "Combined VM memory approaches this Mac's RAM.")
             }
-        .toolbar {
-            ToolbarItem {
-                Button {
-                    Task { await model.inventoryService.refresh() }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .help("Refresh the VM list")
-            }
-            ToolbarItem {
-                Button { showingCreate = true } label: {
-                    Label("Create VM", systemImage: "plus")
-                }
-                .help("Create a VM from an image")
-            }
-            ToolbarItem {
-                Button { beginImport() } label: {
-                    Label("Import VM", systemImage: "square.and.arrow.down")
-                }
-                .help("Import a .tvm archive")
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await model.inventoryService.refresh() }
@@ -129,7 +105,7 @@ struct ContentView: View {
             case .errorReport(let error):
                 ErrorReportSheet(error: error) { model.activeError = nil }
             case .createVM:
-                CreateVMView()
+                NewVMSourceView()
                     .environmentObject(model)
             case .importVM(let path, let suggestedName):
                 ImportVMView(path: path, suggestedName: suggestedName)
@@ -156,6 +132,21 @@ struct ContentView: View {
         }
     }
 
+    private var titlebar: some View {
+        HStack(spacing: 9) {
+            Text("Tart Manager").font(.system(size: 16, weight: .semibold)).tracking(-0.2)
+            Spacer()
+            Button { beginImport() } label: { Label("Import", systemImage: "square.and.arrow.down") }
+                .buttonStyle(WorkspaceButtonStyle(flat: true))
+                .help("Import a .tvm archive")
+            Button { showingCreate = true } label: { Label("New VM", systemImage: "plus") }
+                .buttonStyle(WorkspaceButtonStyle())
+                .keyboardShortcut("n", modifiers: .command)
+        }
+        .padding(.leading, 94).padding(.trailing, 18).frame(height: 56)
+        .background(WorkspaceStyle.panel)
+    }
+
     /// Runs the system file picker for `.tvm` archives; the flow stays
     /// file-path based until the sheet confirms and starts the job.
     private func beginImport() {
@@ -179,22 +170,31 @@ struct ContentView: View {
                                   systemImage: "terminal",
                                   description: Text("Install tart (see banner) to manage VMs."))
         } else {
-            NavigationSplitView {
+            HStack(spacing: 0) {
                 VMListView(inventoryService: model.inventoryService,
                            jobManager: model.jobManager,
                            selection: Binding(
                                get: { model.selectedVM },
                                set: { model.select($0) }),
+                           page: $page,
                            onCreateVM: { showingCreate = true })
-                    .navigationSplitViewColumnWidth(min: 260, ideal: 320)
-            } detail: {
-                if let details = model.selectedDetails {
-                    VMDetailView(details: details)
-                } else {
-                    ContentUnavailableView("Select a VM",
-                                          systemImage: "sidebar.trailing",
-                                          description: Text("Choose a VM to see its details."))
+                    .frame(width: 219)
+                WorkspaceStyle.line.frame(width: 1)
+                Group {
+                    if page == .images {
+                        ImagesView(images: model.inventory?.ociImages ?? [])
+                    } else if let entry = model.selectedVM {
+                        VMDetailView(details: model.selectedDetails ?? VMDetails(
+                            entry: entry, config: nil, ip: nil, fetchedAt: Date()))
+                            .id(entry.id)
+                    } else {
+                        WorkspaceEmptyState(symbol: "desktopcomputer", title: "No virtual machines yet",
+                                            message: "Clone an image or create a VM to begin.") {
+                            Button { showingCreate = true } label: { Label("New VM", systemImage: "plus") }
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
     }
@@ -207,20 +207,34 @@ struct ContentView: View {
     // showed "tart not found" for the outdated case).
     private var statusFooter: some View {
         HStack {
-            Spacer()
             if let status = model.prerequisite {
                 switch status {
                 case .ok(let version, _):
-                    Text("tart \(version)").foregroundStyle(.secondary)
+                    Label {
+                        Text(verbatim: "tart \(version)")
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill")
+                    }
+                    .foregroundStyle(.secondary)
                 case .missing:
-                    Text("tart not found").foregroundStyle(.secondary)
+                    Label("tart not found", systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.secondary)
                 case .outdated(let found, _, _):
-                    Text("tart \(found) (outdated)").foregroundStyle(.orange)
+                    Label {
+                        Text(verbatim: "tart \(found) (outdated)")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
+                    .foregroundStyle(.orange)
                 }
             } else {
                 Text("Checking for tart…").foregroundStyle(.secondary)
             }
+            Spacer()
         }
-        .padding(8)
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 }

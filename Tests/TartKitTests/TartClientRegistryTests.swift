@@ -17,7 +17,7 @@ import Foundation
     }
 
     @Test func logoutSendsHost() throws {
-        let (stub, invocationFile, _) = StubBinary.makeRecordingStubWithStdinCapture()
+        let (stub, invocationFile) = StubBinary.makeRecordingStub()
         let client = TartClient(binaryPath: stub)
         try client.logout(host: "ghcr.io")
         let invocation = try String(contentsOfFile: invocationFile, encoding: .utf8)

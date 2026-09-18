@@ -314,12 +314,12 @@ extension JobManager {
     public func startClone(source: String, to name: String,
                            using client: TartClient) -> JobInfo? {
         let kind = JobInfo.Kind.clone(name: name, source: source)
-        switch start(kind: kind) { context in
+        switch start(kind: kind, body: { context in
             _ = try client.clone(
                 source: source, to: name,
                 onProgress: { context.report($0) },
                 registerCancel: { context.registerCancel($0) })
-        } {
+        }) {
         case .started(let job):
             return job
         case .duplicateTarget:

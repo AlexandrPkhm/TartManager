@@ -6,14 +6,14 @@ import Foundation
     @Test func pruneSendsEntriesAndRetention() throws {
         let (stub, invocationFile) = StubBinary.makeRecordingStub()
         let client = TartClient(binaryPath: stub)
-        var chunks: [String] = []
+        let chunks = LockedValue<[String]>([])
         let outcome = try client.prune(olderThanDays: 14) { chunk in
-            chunks.append(chunk)
+            chunks.withValue { $0.append(chunk) }
         }
         #expect(outcome == .completed)
         // Verified: tart 2.32.0 prune is silent on the success path — the
         // client treats empty output as success, never as a signal.
-        #expect(chunks.isEmpty)
+        #expect(chunks.value.isEmpty)
         let invocation = try String(contentsOfFile: invocationFile, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         #expect(invocation == "prune --entries caches --older-than 14")

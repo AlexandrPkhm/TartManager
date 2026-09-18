@@ -19,9 +19,15 @@ struct VMDetailSharedFoldersSection: View {
     @State private var invalidAlertMessage: String?
 
     var body: some View {
-        Section("Shared Folders") {
-            if isEditable {
-                if !draft.isEmpty {
+        VStack(alignment: .leading, spacing: 16) {
+            if draft.isEmpty {
+                WorkspaceEmptyState(symbol: "folder", title: "No shared folders",
+                                    message: "Make a folder on your Mac available inside this VM.") {
+                    Button { addFolder() } label: { Label("Add folder", systemImage: "plus") }
+                        .disabled(!isEditable)
+                }
+            } else if isEditable {
+                VStack(spacing: 14) {
                     ForEach($draft) { $share in
                         VMFolderShareRow(share: $share,
                                          onDirty: { isDirty = true },
@@ -33,18 +39,20 @@ struct VMDetailSharedFoldersSection: View {
                         draft.move(fromOffsets: source, toOffset: destination)
                         persist()
                     }
-                }
-                Button("Add Folder…") { addFolder() }
+                }.padding(15).workspacePanel()
+                Button { addFolder() } label: { Label("Add folder", systemImage: "plus") }
+                    .buttonStyle(WorkspaceButtonStyle())
             } else {
-                Label("Stop the VM to edit shared folders — changes apply at the next run.",
-                      systemImage: "pause.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
                 ForEach(draft) { share in
                     VMFolderShareSummary(share: share)
                 }
             }
-            guidance
+            if !isEditable {
+                Label("Stop the VM to edit shared folders — changes apply at the next run.",
+                      systemImage: "info.circle")
+                    .font(.system(size: 11)).foregroundStyle(WorkspaceStyle.muted)
+            }
+            if !draft.isEmpty { guidance }
         }
         .task(id: detailKey) { load() }
         .alert("Can't save shared folders",

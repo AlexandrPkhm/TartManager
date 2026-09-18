@@ -7,44 +7,61 @@ struct VMListView: View {
     /// mutation regardless of inventory polls (finding 1).
     @ObservedObject var jobManager: JobManager
     @Binding var selection: VMEntry?
+    @Binding var page: WorkspacePage
     @EnvironmentObject var model: AppModel
     var onCreateVM: () -> Void
 
     init(inventoryService: InventoryService,
          jobManager: JobManager,
          selection: Binding<VMEntry?>,
+         page: Binding<WorkspacePage>,
          onCreateVM: @escaping () -> Void) {
         self.inventoryService = inventoryService
         self.jobManager = jobManager
         self._selection = selection
+        self._page = page
         self.onCreateVM = onCreateVM
     }
 
     var body: some View {
-        List(selection: $selection) {
-            if !jobManager.jobs.isEmpty {
-                Section("Jobs") {
-                    ForEach(jobManager.jobs) { job in
-                        JobRowView(jobManager: jobManager, jobID: job.id)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 5) {
+                    sectionLabel("LIBRARY")
+                    navigationRow("Virtual machines", symbol: "square.3.layers.3d",
+                                  count: inventoryService.inventory?.localVMs.count ?? 0, target: .machines)
+                    navigationRow("Images", symbol: "shippingbox",
+                                  count: inventoryService.inventory?.ociImages.count ?? 0, target: .images)
+                    sectionLabel("ON THIS MAC")
+                    ForEach(inventoryService.inventory?.localVMs ?? []) { entry in
+                        Button {
+                            selection = entry
+                            page = .machines
+                        } label: {
+                            VMRowView(entry: entry)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(page == .machines && selection?.id == entry.id
+                                            ? WorkspaceStyle.selected : .clear,
+                                            in: RoundedRectangle(cornerRadius: 7))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(page == .machines && selection?.id == entry.id ? .isSelected : [])
                     }
-                }
-            }
-            if let inventory = inventoryService.inventory {
-                Section("Virtual Machines") {
-                    ForEach(inventory.localVMs) { entry in
-                        VMRowView(entry: entry).tag(Optional(entry))
-                    }
-                }
-                if !inventory.ociImages.isEmpty {
-                    Section("OCI Images") {
-                        ForEach(inventory.ociImages) { entry in
-                            VMRowView(entry: entry).tag(Optional(entry))
+                    if !jobManager.jobs.isEmpty {
+                        sectionLabel("JOBS")
+                        ForEach(jobManager.jobs) { job in
+                            JobRowView(jobManager: jobManager, jobID: job.id)
+                                .padding(.horizontal, 10)
                         }
                     }
                 }
+                .padding(.horizontal, 12).padding(.top, 17)
             }
+            engineStatus.padding(.horizontal, 22).padding(.top, 16).padding(.bottom, 15)
         }
-        .listStyle(.inset)
+        .background(WorkspaceStyle.sidebar)
         .confirmationDialog(
             "Stop “\(model.pendingForceStop?.name ?? "")” immediately?",
             isPresented: Binding(
@@ -61,12 +78,6 @@ struct VMListView: View {
             } message: {
                 Text("The guest gets no chance to save unsaved work.")
             }
-        .overlay {
-            if let inventory = inventoryService.inventory,
-               inventory.localVMs.isEmpty, inventory.ociImages.isEmpty {
-                emptyState
-            }
-        }
         .sheet(item: cloneSheetBinding) { source in
             CloneVMView(source: source).environmentObject(model)
         }
@@ -78,6 +89,55 @@ struct VMListView: View {
         } message: { vm in
             Text("The first boot of “\(vm.name)” opens macOS Setup Assistant — "
                  + "complete it inside the VM window.")
+        }
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title).font(.system(size: 11, weight: .semibold)).tracking(0.35)
+            .foregroundStyle(WorkspaceStyle.muted)
+            .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 5)
+    }
+
+    private func navigationRow(_ title: String, symbol: String, count: Int,
+                               target: WorkspacePage) -> some View {
+        Button { page = target } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol).frame(width: 16)
+                Text(title).font(.system(size: 12))
+                Spacer(minLength: 0)
+                Text(count, format: .number).font(.system(size: 11)).foregroundStyle(WorkspaceStyle.muted)
+            }
+            .foregroundStyle(page == target ? WorkspaceStyle.accent : WorkspaceStyle.text)
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .background(page == target ? WorkspaceStyle.selected : .clear,
+                        in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(page == target ? .isSelected : [])
+    }
+
+    private var engineStatus: some View {
+        HStack(spacing: 7) {
+            Circle().fill(model.prerequisite?.isSatisfied == true ? WorkspaceStyle.green : .orange)
+                .frame(width: 6, height: 6)
+            Text(engineVersion)
+            Spacer(minLength: 4)
+            Button { Task { await inventoryService.refresh() } } label: {
+                Text(model.prerequisite?.isSatisfied == true ? "Ready" : "Check setup")
+            }
+            .buttonStyle(.plain).help("Refresh inventory")
+            .accessibilityLabel("Refresh inventory")
+        }
+        .font(.system(size: 11)).foregroundStyle(WorkspaceStyle.muted)
+    }
+
+    private var engineVersion: String {
+        switch model.prerequisite {
+        case .ok(let version, _): return "tart \(version)"
+        case .outdated(let version, _, _): return "tart \(version) · outdated"
+        case .missing: return "tart not found"
+        case nil: return "Checking tart…"
         }
     }
 
@@ -103,7 +163,7 @@ struct VMListView: View {
         ContentUnavailableView {
             Label("No VMs yet", systemImage: "desktopcomputer.and.arrow.down")
         } description: {
-            Text("Clone a registry image or point Tart Manager at your tart storage in Settings.")
+            Text("Clone an image or create a VM to begin.")
         } actions: {
             Button("Create a VM…") { onCreateVM() }
         }

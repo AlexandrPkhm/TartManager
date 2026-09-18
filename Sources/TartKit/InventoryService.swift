@@ -25,19 +25,19 @@ public final class InventoryService: ObservableObject {
     public var onFetchFailure: (@MainActor (Error) -> Void)?
 
     /// Poll cadence (PRD: named internal constant, not a user setting).
-    public static let defaultPollInterval: TimeInterval = 3
+    nonisolated public static let defaultPollInterval: TimeInterval = 3
 
     /// How long the whole allocation gather may run before the assessment
     /// degrades to "no warning" (the run proceeds and the expiry is
     /// logged). Each `tart get` inside is separately bounded by the
     /// TartClient's per-run deadline, so a wedged subprocess is
     /// independently capped.
-    public static let defaultMemoryGatherTimeout: TimeInterval = 5
+    nonisolated public static let defaultMemoryGatherTimeout: TimeInterval = 5
 
     /// Coalescing threshold for trigger-driven refreshes (e.g. right after a
     /// successful run): a fetch is skipped when the last successful one is
     /// younger than this, because the 3 s poll is the reconciler of record.
-    public static let refreshCoalescingInterval: TimeInterval = 1
+    nonisolated public static let refreshCoalescingInterval: TimeInterval = 1
 
     /// Timestamp of the last successful fetch; nil until the first one.
     /// Not published: it is an internal coalescing bookkeeping value, and

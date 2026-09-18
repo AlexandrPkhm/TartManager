@@ -185,10 +185,10 @@ import Foundation
         // to the deleteVM kind).
         let manager = JobManager()
         let gate = AsyncGate()
-        var deleteCompleted = false
+        let deleteCompleted = LockedValue(false)
         let result = manager.start(kind: .deleteVM(name: "vm-a")) { _ in
             while !gate.isOpen { Thread.sleep(forTimeInterval: 0.01) }
-            deleteCompleted = true
+            deleteCompleted.withValue { $0 = true }
         }
         guard case .started(let info) = result else {
             Issue.record("job not found"); return
@@ -196,7 +196,7 @@ import Foundation
         manager.cancel(id: info.id)
         gate.open()
         await manager.awaitIdle(timeout: 2)
-        #expect(deleteCompleted)
+        #expect(deleteCompleted.value)
         let finished = manager.jobs.first { $0.id == info.id }
         #expect(finished?.phase == .completed) // never .cancelled
     }

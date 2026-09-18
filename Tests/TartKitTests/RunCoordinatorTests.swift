@@ -53,7 +53,7 @@ import Foundation
         let deadline = Date().addingTimeInterval(5)
         while !FileManager.default.fileExists(atPath: invocationFile),
               Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
         }
         let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
             .split(separator: "\n")
@@ -117,7 +117,7 @@ import Foundation
         let deadline = Date().addingTimeInterval(5)
         while !FileManager.default.fileExists(atPath: invocationFile),
               Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
         }
         let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
             .split(separator: "\n")
@@ -218,7 +218,7 @@ import Foundation
         let deadline = Date().addingTimeInterval(5)
         while !FileManager.default.fileExists(atPath: invocationFile),
               Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
         }
         let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
             .split(separator: "\n")

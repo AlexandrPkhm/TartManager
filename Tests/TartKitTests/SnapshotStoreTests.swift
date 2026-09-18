@@ -27,7 +27,7 @@ import Foundation
 
     @Test func proposePathNeverCollidesWithExistingArchives() {
         // finding 9: same-second/same-label snapshots must never overwrite.
-        let (store, directory) = makeStore()
+        let (store, _) = makeStore()
         let date = Date(timeIntervalSince1970: 0)
         let first = store.proposeArchivePath(vmName: "vm", label: "pre", date: date)
         touch(first)
@@ -45,7 +45,7 @@ import Foundation
     }
 
     @Test func metadataRoundTripsThroughTheScan() throws {
-        let (store, directory) = makeStore()
+        let (store, _) = makeStore()
         let archivePath = store.proposeArchivePath(vmName: "vm-a", label: "pre-experiment")
         touch(archivePath, size: 256)
         let created = Date(timeIntervalSince1970: 1_000_000)

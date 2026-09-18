@@ -27,7 +27,7 @@ import Foundation
         while invocation.isEmpty, Date() < deadline {
             invocation = (try? String(contentsOfFile: invocationFile, encoding: .utf8))?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if invocation.isEmpty { Thread.sleep(forTimeInterval: 0.02) }
+            if invocation.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         }
         #expect(invocation == "run --suspendable --dir work:/Users/me/work:ro vm-a")
     }
@@ -52,7 +52,7 @@ import Foundation
         while invocation.isEmpty, Date() < deadline {
             invocation = (try? String(contentsOfFile: invocationFile, encoding: .utf8))?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if invocation.isEmpty { Thread.sleep(forTimeInterval: 0.02) }
+            if invocation.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         }
         #expect(invocation == "run --suspendable vm-a")
     }

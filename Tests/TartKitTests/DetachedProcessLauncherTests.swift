@@ -27,10 +27,8 @@ import Foundation
         // The success path unlinks the log immediately: nothing accumulates
         // in the temp directory while the VM runs.
         #expect(try runLogNames(in: dir).isEmpty)
-        defer {
-            handle.process.terminate()
-            handle.process.waitUntilExit()
-        }
+        handle.process.terminate()
+        handle.process.waitUntilExit()
     }
 
     @Test func throwsCapturedOutputWhenChildExitsQuickly() throws {

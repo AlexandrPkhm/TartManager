@@ -96,7 +96,13 @@ final class AppModel: ObservableObject {
         // The detail pane's refresh trigger: views observe AppModel only,
         // so every poll result is mirrored into a published property.
         inventoryObserver = inventoryService.$inventory.sink { [weak self] inventory in
-            self?.inventory = inventory
+            guard let self else { return }
+            self.inventory = inventory
+            if let inventory {
+                self.select(WorkspaceSelection.resolve(
+                    preferredName: self.selectedVM?.name ?? self.settings.selectedVMName,
+                    localVMs: inventory.localVMs))
+            }
         }
         refreshAvailability()
         rewireInventoryFetch()
@@ -410,9 +416,9 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self?.present(analyzed) }
             })
 
-        switch jobManager.start(kind: kind) { context in
+        switch jobManager.start(kind: kind, body: { context in
             try job.run(context: context)
-        } {
+        }) {
         case .started(let info):
             return info
         case .duplicateTarget:
@@ -509,9 +515,9 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self?.present(analyzed) }
             })
 
-        switch jobManager.start(kind: kind) { context in
+        switch jobManager.start(kind: kind, body: { context in
             try job.run(context: context)
-        } {
+        }) {
         case .started(let info):
             return info
         case .duplicateTarget:
@@ -778,7 +784,7 @@ final class AppModel: ObservableObject {
     /// and detail+inventory refresh on success (always).
     private func runSetOperation(_ entry: VMEntry,
                                  operation: String,
-                                 _ operationBody: @escaping (TartClient) throws -> Void) async {
+                                 _ operationBody: @escaping @Sendable (TartClient) throws -> Void) async {
         guard entry.canEditResources else {
             Logger.resources.warning(
                 "\(operation, privacy: .public) blocked: \(entry.name, privacy: .public) is \(entry.state, privacy: .public)")
@@ -989,9 +995,9 @@ final class AppModel: ObservableObject {
                                       onOutput: onOutput, registerCancel: register)
                 }))
 
-        switch jobManager.start(kind: .exportSnapshot(vm: vmName)) { context in
+        switch jobManager.start(kind: .exportSnapshot(vm: vmName), body: { context in
             try job.run(context: context)
-        } {
+        }) {
         case .started:
             break
         case .duplicateTarget(let target):
@@ -1103,9 +1109,9 @@ final class AppModel: ObservableObject {
                     DiskSpace.freeBytes(atPath: path) ?? DiskSpace.freeBytes(forDestination: path)
                 }))
 
-        switch jobManager.start(kind: .restoreSnapshot(vm: vmName)) { context in
+        switch jobManager.start(kind: .restoreSnapshot(vm: vmName), body: { context in
             try job.run(context: context)
-        } {
+        }) {
         case .started:
             break
         case .duplicateTarget(let target):
@@ -1192,9 +1198,11 @@ final class AppModel: ObservableObject {
         if entry?.name != selectedVM?.name {
             cachedConfig = nil
             selectedDetails = nil
+            vmSnapshots = []
             detailGeneration += 1
         }
         selectedVM = entry
+        settings.selectedVMName = entry?.isLocal == true ? entry?.name : nil
     }
 
     /// Refreshes the detail pane for the current selection. Follows
@@ -1229,6 +1237,7 @@ final class AppModel: ObservableObject {
             config = try? await Task.detached(priority: .utility) {
                 try client.get(name: name)
             }.value
+            guard generation == detailGeneration, selectedVM?.name == name else { return }
             cachedConfig = config.map { (name: name, config: $0) }
         } else {
             config = cachedConfig?.name == name ? cachedConfig?.config : nil
@@ -1329,9 +1338,9 @@ final class AppModel: ObservableObject {
             ops: VMDeleteJob.Ops(
                 list: { try client.list() },
                 delete: { name, timeout in try client.delete(name: name, timeout: timeout) }))
-        switch jobManager.start(kind: .deleteVM(name: vm.name)) { context in
+        switch jobManager.start(kind: .deleteVM(name: vm.name), body: { context in
             try job.run(context: context)
-        } {
+        }) {
         case .started(let info):
             return info
         case .duplicateTarget:

@@ -8,8 +8,15 @@ struct AboutView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Tart Manager", systemImage: "desktopcomputer")
-                .font(.title2).bold()
+            HStack(spacing: 12) {
+                Image(nsImage: AppIcon.image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 48, height: 48)
+                    .accessibilityHidden(true)
+                Text("Tart Manager")
+                    .font(.title2).bold()
+            }
             Text("A native control center for tart VMs.")
                 .foregroundStyle(.secondary)
             Divider()

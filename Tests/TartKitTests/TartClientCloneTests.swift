@@ -64,16 +64,16 @@ import Foundation
         echo '20%'
         exit 0
         """)
-        var collected: [PullProgress] = []
+        let collected = LockedValue<[PullProgress]>([])
         _ = try makeClient(stub: stub).clone(
             source: "img:latest", to: "vm-x",
-            onProgress: { collected.append($0) },
+            onProgress: { progress in collected.withValue { $0.append(progress) } },
             registerCancel: { _ in })
         // clone() awaits exit AND the streams' EOF drain, so asserting
         // immediately is deterministic (finding 10).
-        #expect(collected.contains { $0.fraction == 0.1 })
-        #expect(collected.contains { $0.fraction == 0.2 })
-        #expect(collected.contains { $0.fraction == nil && $0.note == "pulling manifest…" })
+        #expect(collected.value.contains { $0.fraction == 0.1 })
+        #expect(collected.value.contains { $0.fraction == 0.2 })
+        #expect(collected.value.contains { $0.fraction == nil && $0.note == "pulling manifest…" })
     }
 
     @Test func cloneDeduplicatesUnchangedProgress() throws {
@@ -83,16 +83,16 @@ import Foundation
         printf '10%%\r'; sleep 0.2
         printf '20%%\n'; sleep 0.2
         """)
-        var fractions: [Double?] = []
+        let fractions = LockedValue<[Double?]>([])
         _ = try makeClient(stub: stub).clone(
             source: "img:latest", to: "vm-y",
-            onProgress: { fractions.append($0.fraction) },
+            onProgress: { progress in fractions.withValue { $0.append(progress.fraction) } },
             registerCancel: { _ in })
         // finding 12: identical parses are never re-reported. Chunking is
         // unspecified, so assert no adjacent duplicates and the final value
         // (robust whether chunks merge or not).
-        #expect(fractions.last == 0.2)
-        let adjacent = zip(fractions, fractions.dropFirst())
+        #expect(fractions.value.last == 0.2)
+        let adjacent = zip(fractions.value, fractions.value.dropFirst())
         #expect(adjacent.allSatisfy { $0.0 != $0.1 })
     }
 

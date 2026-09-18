@@ -10,7 +10,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "TartKit"),
-        .executableTarget(name: "TartManager", dependencies: ["TartKit"]),
+        .executableTarget(
+            name: "TartManager",
+            dependencies: ["TartKit"],
+            resources: [.copy("Resources/AppIcon.icns")]
+        ),
         .testTarget(name: "TartKitTests", dependencies: ["TartKit"]),
         .testTarget(name: "TartManagerTests", dependencies: ["TartManager", "TartKit"]),
     ],
