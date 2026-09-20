@@ -6,14 +6,16 @@ has no server-side components, no containers, and no cloud services of its
 own. "Deployment" therefore means installing and configuring the app and its
 prerequisites on each Mac that will manage VMs.
 
-This document covers the production configuration surface only: environment
+This document covers the production configuration surface — environment
 variables, the `tart` CLI dependency, registry access, error reporting, and
-logging. Development setup is covered in [README.md](README.md); CI/CD and
-packaging automation are separate concerns and out of scope here.
+logging — and how to package the app into a distributable DMG. Development
+setup is covered in [README.md](README.md); CI/CD automation is out of scope
+here.
 
 ## Table of Contents
 
 - [Deployment Model](#deployment-model)
+- [Packaging](#packaging)
 - [Infrastructure Dependencies](#infrastructure-dependencies)
   - [Operating system](#operating-system)
   - [tart CLI](#tart-cli)
@@ -40,6 +42,154 @@ tart under the configured storage path, and macOS Keychain entries owned by
 tart). Deploying to N machines means repeating the same installation and
 configuration on each, optionally pre-seeded by configuration management
 (MDM or a provisioning script).
+
+## Packaging
+
+Tart Manager ships as a conventional macOS `.app` inside a disk image (DMG).
+Because the project is Swift Package Manager only (no `.xcodeproj`), the
+bundle must be assembled by hand — `swift build` produces a bare executable.
+The packaged app does not bundle `tart` itself; the CLI remains a separate
+prerequisite on the target machine (see [Infrastructure
+Dependencies](#infrastructure-dependencies)).
+
+The flow has four stages: release build, bundle assembly, code signing, and
+DMG creation. The repository ships `Scripts/package.sh`, which automates all
+of them:
+
+```sh
+Scripts/package.sh                    # ad-hoc signed; version = latest git tag (or 1.0.0)
+Scripts/package.sh --version 1.2.3    # stamp a specific version
+Scripts/package.sh --sign "Developer ID Application: Jane Doe (TEAM123)" --notarize
+Scripts/package.sh --skip-build       # re-use the existing release binary
+```
+
+The artifact lands in `dist/TartManager-<version>.dmg`. With `--sign`,
+adding `--notarize` notarizes and staples the finished DMG; credentials come
+from the `NOTARY_APPLE_ID`, `NOTARY_TEAM_ID`, and `NOTARY_PASSWORD`
+environment variables.
+
+The stages below are the manual equivalent of the script, documented for
+reference and for custom toolchains. Every release must repeat all of them.
+
+### Release build
+
+```sh
+swift build -c release
+```
+
+Find the release binary with `swift build -c release --show-bin-path`;
+the output location varies between SwiftPM build systems. The app targets
+Apple Silicon, matching tart's own host requirements.
+
+### App bundle assembly
+
+Create the standard macOS bundle layout and populate it:
+
+```sh
+APP="dist/Tart Manager.app"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+cp "$(swift build -c release --show-bin-path)/TartManager" "$APP/Contents/MacOS/TartManager"
+xcrun actool Assets/AppIcon.icon \
+    --compile "$APP/Contents/Resources" \
+    --app-icon AppIcon --include-all-app-icons \
+    --output-partial-info-plist dist/icon-info.plist \
+    --target-device mac --minimum-deployment-target 14.0 --platform macosx
+```
+
+Full Xcode with Icon Composer support is required for packaging. The icon
+source is `Assets/AppIcon.icon`: the transparent T is its foreground, with
+a native light-gray background. Compilation produces `Assets.car` for system
+appearance variants and `AppIcon.icns` for compatibility. Keep both files.
+Packaged launches preserve the system-rendered Dock icon; bare `swift run`
+launches use `Sources/TartManager/Resources/AppIcon.icns` as a static fallback.
+
+Write `dist/Tart Manager.app/Contents/Info.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>       <string>TartManager</string>
+    <key>CFBundleIconFile</key>         <string>AppIcon</string>
+    <key>CFBundleIconName</key>         <string>AppIcon</string>
+    <key>CFBundleIdentifier</key>       <string>TartManager</string>
+    <key>CFBundleName</key>             <string>TartManager</string>
+    <key>CFBundleDisplayName</key>      <string>Tart Manager</string>
+    <key>CFBundlePackageType</key>      <string>APPL</string>
+    <key>CFBundleShortVersionString</key> <string>1.0.0</string>
+    <key>CFBundleVersion</key>          <string>1</string>
+    <key>LSMinimumSystemVersion</key>   <string>14.0</string>
+    <key>NSHighResolutionCapable</key>  <true/>
+</dict>
+</plist>
+```
+
+The packaging script merges the icon compiler's partial Info.plist into the
+app's Info.plist so both icon keys stay in sync with the compiled asset.
+
+Set the two version keys to the release version being packaged. **The
+`CFBundleIdentifier` must remain `TartManager`** (not reverse-DNS): all
+settings persist in the `TartManager` defaults domain (see [Configuration
+and Persistence](#configuration-and-persistence)), which is the domain the
+bare `swift run` binary already uses. A reverse-DNS identifier would switch
+`UserDefaults.standard` to a new domain and silently discard onboarding
+state — the configured storage path and other settings — on machines that
+previously ran the bare binary.
+
+### Code signing
+
+Sign the bundle before creating the DMG:
+
+```sh
+codesign --force --sign - "dist/Tart Manager.app"
+```
+
+`-` selects ad-hoc signing, which is sufficient for the developer's own
+machine. For distribution to others, sign with a Developer ID certificate
+and the hardened runtime instead:
+
+```sh
+codesign --force --options runtime --timestamp \
+  --sign "Developer ID Application: <your identity>" "dist/Tart Manager.app"
+```
+
+This requires a paid Apple Developer account.
+
+### DMG creation
+
+```sh
+mkdir -p dist/dmg-root
+cp -R "dist/Tart Manager.app" dist/dmg-root/
+ln -s /Applications dist/dmg-root/Applications
+
+hdiutil create -volname "Tart Manager" -srcfolder dist/dmg-root -ov -format UDZO \
+  dist/TartManager-1.0.0.dmg
+```
+
+The disk image contains the app and an `/Applications` symlink so users can
+drag-install.
+
+### Distribution notes
+
+- **Gatekeeper.** Ad-hoc or unsigned builds are blocked as an "unidentified
+  developer" on other machines; recipients must right-click → Open or run
+  `xattr -cr "/Applications/Tart Manager.app"`. For a warning-free install,
+  use Developer ID signing plus notarization.
+- **Notarization.** With the Developer ID-signed app, notarize the finished
+  DMG (not the app) and staple the ticket:
+
+  ```sh
+  xcrun notarytool submit dist/TartManager-1.0.0.dmg \
+    --apple-id <apple-id> --team-id <team-id> \
+    --password <app-specific-password> --wait
+  xcrun stapler staple dist/TartManager-1.0.0.dmg
+  ```
+
+- **`tart` prerequisite.** The DMG never bundles `tart`. Target machines
+  must install it first (`brew install cirruslabs/cli/tart`); otherwise the
+  app shows its remediation banner at launch.
 
 ## Infrastructure Dependencies
 
@@ -210,7 +360,7 @@ no log files of its own.
 - **Categories**: `storage`, `settings`, `stop`, `suspend`, `errorReporting`,
   `TartClient`, `resources`, `clone`, `importJob`, `importCleanup`,
   `overcommit`, `snapshot`, `restore`, `createJob`, `createCleanup`,
-  `deleteVM`, `rename`, `replaceDisk`, `registries`, `sharedFolders`.
+  `deleteVM`, `rename`, `replaceDisk`, `registries`, `sharedFolders`, `icon`.
 - **Levels**: call sites use `notice`, `info`, `debug`, `warning`, and
   `error`; there is no runtime level switch in the app. To enable
   debug-level output on a production machine for triage:

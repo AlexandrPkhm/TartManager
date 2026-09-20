@@ -3,3 +3,4 @@
 .swiftpm/
 .sdd/
 .codegraph/
+dist/

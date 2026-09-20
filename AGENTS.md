@@ -116,7 +116,7 @@ Tests/
   `settings`, `stop`, `suspend`, `errorReporting`, `TartClient`, `resources`,
   `clone`, `importJob`, `importCleanup`, `overcommit`, `snapshot`, `restore`,
   `createJob`, `createCleanup`, `deleteVM`, `rename`, `replaceDisk`,
-  `registries`, `sharedFolders`). Interpolate values with
+  `registries`, `sharedFolders`, `icon`). Interpolate values with
   `privacy: .public`. **Never log secrets**: registry passwords are
   scrubbed with `RegistryCredentialScrubber` before reaching logs, sheets,
   or the clipboard; shared-folders logs record counts and tags, never host

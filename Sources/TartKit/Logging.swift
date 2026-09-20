@@ -59,4 +59,7 @@ public extension Logger {
     /// argv (counts/tags, not host paths), editor-gate refusals, and run
     /// failures that involve shares.
     static let sharedFolders = Logger(subsystem: "app.TartManager", category: "sharedFolders")
+    /// App icon resolution: which layout supplied the icon and the fallback
+    /// to the system application icon when none did.
+    static let icon = Logger(subsystem: "app.TartManager", category: "icon")
 }
