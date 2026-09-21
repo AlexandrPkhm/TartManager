@@ -28,6 +28,9 @@ private final class SyncResultBox: @unchecked Sendable {
 @MainActor
 final class AppModel: ObservableObject {
     @Published var settings: AppSettings
+    @Published var appearance: AppAppearance {
+        didSet { settings.appearance = appearance }
+    }
     @Published var prerequisite: TartPrerequisiteStatus?
     @Published var isCheckingPrerequisite = false
     @Published var storageAvailability: StorageAvailability =
@@ -42,6 +45,7 @@ final class AppModel: ObservableObject {
     init(settings: AppSettings = AppSettings(),
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard)) {
         self.settings = settings
+        self.appearance = settings.appearance
         self.firstRunReminder = firstRunReminder
         // Poll failures re-probe storage availability: an unmounted volume
         // flips the app to the dedicated unavailable state without a restart,

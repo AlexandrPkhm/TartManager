@@ -12,8 +12,8 @@ public enum VMFolderShareError: Error, Equatable {
 /// - `make` REJECTS (throws) empty names, `:`/`,` in the name or custom tag,
 ///   and `:`/`,` in the host path — those characters would make tart's
 ///   `--dir` parse ambiguous, so they are never silently mangled away.
-/// - Everything else outside the share charset is stripped by `sanitize`,
-///   which maps spaces to `-` FIRST (so "My Build Folder" → "My-Build-Folder").
+/// - Mount names preserve internal spaces while custom tags map spaces to
+///   `-`; everything else outside their share charset is stripped.
 /// - The edit path (`set(name:)` / `set(customTag:)`) applies the same
 ///   sanitization, and `isValidForPersistence` lets `persist()` re-verify
 ///   before anything is saved.
@@ -54,13 +54,13 @@ public struct VMFolderShare: Equatable, Codable, Identifiable, Sendable {
             guard !customTag.contains(":"), !customTag.contains(",") else {
                 throw VMFolderShareError.invalidTag(customTag)
             }
-            let tag = Self.sanitize(customTag)
+            let tag = Self.sanitizeTag(customTag)
             guard !tag.isEmpty else { throw VMFolderShareError.invalidTag(customTag) }
             sanitizedTag = tag
         } else {
             sanitizedTag = nil
         }
-        let sanitizedName = Self.sanitize(name)
+        let sanitizedName = Self.sanitizeName(name)
         guard !sanitizedName.isEmpty else { throw VMFolderShareError.invalidName(name) }
         return VMFolderShare(name: sanitizedName, hostPath: hostPath,
                              readOnly: readOnly, customTag: sanitizedTag)
@@ -85,20 +85,21 @@ public struct VMFolderShare: Equatable, Codable, Identifiable, Sendable {
     // MARK: Edit path — the same charset rules `make` enforces (finding 5)
 
     /// Mutates the name through the share charset: `:` and `,` are stripped
-    /// (never stored), spaces map to `-`, everything else outside
-    /// `[A-Za-z0-9_-]` is dropped. Non-throwing so it can back a live
+    /// (never stored), outer whitespace is trimmed, internal spaces are
+    /// preserved, and everything else outside `[A-Za-z0-9 _-]` is dropped.
+    /// Non-throwing so it can back a live
     /// TextField binding; `isValidForPersistence`/`persist()` is the second
     /// gate before anything is saved.
     public mutating func set(name rawName: String) {
-        name = Self.cleanEditableValue(rawName)
+        name = Self.cleanEditableName(rawName)
     }
 
-    /// Empty (trimmed) input clears the tag to nil; otherwise the same
-    /// charset rules apply.
+    /// Empty (trimmed) input clears the tag to nil; otherwise spaces map to
+    /// hyphens and the tag charset rules apply.
     public mutating func set(customTag rawTag: String) {
         let trimmed = rawTag.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { customTag = nil; return }
-        customTag = Self.cleanEditableValue(trimmed)
+        customTag = Self.cleanEditableTag(trimmed)
     }
 
     /// True when the stored values render an unambiguous `--dir` argument —
@@ -107,19 +108,29 @@ public struct VMFolderShare: Equatable, Codable, Identifiable, Sendable {
     public var isValidForPersistence: Bool {
         guard !name.isEmpty,
               !name.contains(":"), !name.contains(","),
-              name == Self.sanitize(name) else { return false }
+              name == Self.sanitizeName(name) else { return false }
         guard !hostPath.isEmpty,
               !hostPath.contains(":"), !hostPath.contains(",") else { return false }
         if let customTag {
             return !customTag.contains(":") && !customTag.contains(",")
-                && customTag == Self.sanitize(customTag)
+                && customTag == Self.sanitizeTag(customTag)
         }
         return true
     }
 
-    /// Restricts to the share/tag charset: maps spaces to `-` FIRST, then
-    /// keeps only `[A-Za-z0-9_-]`.
-    static func sanitize(_ raw: String) -> String {
+    /// Restricts a native Tart mount name to a conservative share charset,
+    /// preserving internal spaces and trimming the outer whitespace.
+    private static func sanitizeName(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let scalars = trimmed.unicodeScalars.filter { scalar in
+            CharacterSet.alphanumerics.contains(scalar) || scalar == " " || scalar == "-" || scalar == "_"
+        }
+        return String(String.UnicodeScalarView(scalars))
+    }
+
+    /// Restricts a manual virtiofs tag to `[A-Za-z0-9_-]`, mapping spaces to
+    /// hyphens before removing other unsupported characters.
+    private static func sanitizeTag(_ raw: String) -> String {
         let spacesMapped = raw.replacingOccurrences(of: " ", with: "-")
         let scalars = spacesMapped.unicodeScalars.filter { scalar in
             CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_"
@@ -127,10 +138,18 @@ public struct VMFolderShare: Equatable, Codable, Identifiable, Sendable {
         return String(String.UnicodeScalarView(scalars))
     }
 
-    /// Edit-path application of the contract: strip the ambiguity
-    /// characters, then `sanitize` (spaces → `-`, non-charset dropped).
-    private static func cleanEditableValue(_ raw: String) -> String {
-        sanitize(raw
+    /// Edit-path application of the mount-name contract: strip Tart's
+    /// delimiter characters, then preserve allowed internal spaces.
+    private static func cleanEditableName(_ raw: String) -> String {
+        sanitizeName(raw
+            .replacingOccurrences(of: ":", with: "")
+            .replacingOccurrences(of: ",", with: ""))
+    }
+
+    /// Edit-path application of the custom-tag contract: strip Tart's
+    /// delimiter characters, then map spaces to hyphens.
+    private static func cleanEditableTag(_ raw: String) -> String {
+        sanitizeTag(raw
             .replacingOccurrences(of: ":", with: "")
             .replacingOccurrences(of: ",", with: ""))
     }

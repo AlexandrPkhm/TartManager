@@ -37,6 +37,21 @@ The setting is stored in `UserDefaults` under the `TartManager` domain
 
     defaults delete TartManager storagePath
 
+## Shared folders
+
+Each shared folder has a **Mount name**. Tart automatically mounts an
+untagged folder inside the guest at `/Volumes/My Shared Files/<mount name>`;
+mount names may contain spaces, such as `Host Downloads`. An optional custom
+tag is an advanced manual-mount feature, not an automount setting: mount it in
+the guest with `mount_virtiofs <tag> <directory>`.
+
+## Appearance
+
+Use the appearance icon in the main window or Settings → General → Appearance
+to choose Light (sun), Dark (moon), or System (half-filled circle). The choice
+is saved across launches; System follows your Mac's appearance. Settings groups
+general preferences and storage controls into separate tabs.
+
 ## Error reporting
 
 Every failed tart operation surfaces a standard report sheet: the

@@ -17,6 +17,22 @@ import Foundation
         #expect(settings.storagePath == "/tmp/somewhere")
     }
 
+    @Test func appearanceDefaultsToSystemAndPersistsEveryChoice() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.appearance == .system)
+        for appearance in [AppAppearance.light, .dark, .system] {
+            settings.appearance = appearance
+            #expect(AppSettings(defaults: defaults).appearance == appearance)
+        }
+    }
+
+    @Test func unknownAppearanceFallsBackToSystem() {
+        let defaults = makeIsolatedDefaults()
+        defaults.set("unknown", forKey: AppSettings.appearanceKey)
+        #expect(AppSettings(defaults: defaults).appearance == .system)
+    }
+
     @Test func clearingStoragePathRemovesIt() {
         let settings = AppSettings(defaults: makeIsolatedDefaults())
         settings.storagePath = "/tmp/somewhere"

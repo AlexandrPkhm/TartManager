@@ -141,8 +141,8 @@ struct StorageSettingsView: View {
                  + "VMs and snapshots are not touched. The job appears in the Jobs list "
                  + "with its summary when done.")
         }
+        .formStyle(.grouped)
         .padding()
-        .frame(width: 440)
     }
 
     private func choose() {

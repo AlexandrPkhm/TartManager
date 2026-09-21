@@ -79,12 +79,12 @@ struct VMDetailSharedFoldersSection: View {
 
     private var guidance: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Default-tag shares appear inside the guest at "
-                 + "/Volumes/My Shared Files/<name>.")
+            Text("Untagged shares are automatically mounted inside the guest at "
+                 + "/Volumes/My Shared Files/<mount name>.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Shares with a custom mount tag are not automounted — "
-                 + "mount them manually inside the guest (mount_virtiofs <tag>).")
+            Text("Custom-tag shares are not automounted. Mount one manually inside the guest with "
+                 + "mount_virtiofs <tag> <directory>.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -143,52 +143,98 @@ struct VMDetailSharedFoldersSection: View {
 
 private struct VMFolderShareRow: View {
     @Binding var share: VMFolderShare
+    @State private var nameInput: String
+    @FocusState private var nameIsFocused: Bool
     let onDirty: () -> Void
     let onEdit: () -> Void
     let onRemove: () -> Void
 
+    init(share: Binding<VMFolderShare>, onDirty: @escaping () -> Void,
+         onEdit: @escaping () -> Void, onRemove: @escaping () -> Void) {
+        _share = share
+        _nameInput = State(initialValue: share.wrappedValue.name)
+        self.onDirty = onDirty
+        self.onEdit = onEdit
+        self.onRemove = onRemove
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                TextField("Name", text: sanitizedName)
-                    .frame(width: 140)
-                Text(share.hostPath)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer()
+        // A shared trailing column keeps both editable fields the same width,
+        // regardless of the intrinsic widths of Remove and Read-only.
+        Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 12) {
+            GridRow(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Mount name").font(.caption).foregroundStyle(.secondary)
+                    TextField("e.g. Host Downloads", text: editableName)
+                        .textFieldStyle(.roundedBorder)
+                        .labelsHidden()
+                        .focused($nameIsFocused)
+                        .onSubmit { nameInput = share.name }
+                        .accessibilityLabel("Mount name")
+                        .help("The folder name shown inside the guest. Leave the custom tag empty for automatic mounting.")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Button(role: .destructive) { onRemove() } label: {
                     Label("Remove", systemImage: "minus.circle")
                 }
                 .buttonStyle(.borderless)
+                .padding(.bottom, 3)
             }
-            HStack {
+            GridRow {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Host folder").font(.caption).foregroundStyle(.secondary)
+                    Text(share.hostPath)
+                        .font(.system(.body, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(share.hostPath)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                // The path is read-only and must not widen the input column.
+                .gridCellUnsizedAxes(.horizontal)
+                Color.clear.frame(width: 0, height: 0)
+            }
+            GridRow(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Custom mount tag (optional)")
+                        .font(.caption).foregroundStyle(.secondary)
+                    TextField("Leave empty to automount", text: optionalTag)
+                        .textFieldStyle(.roundedBorder)
+                        .labelsHidden()
+                        .accessibilityLabel("Custom mount tag (optional)")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Toggle("Read-only", isOn: readOnlyBinding)
-                TextField("Custom mount tag (optional)", text: optionalTag)
-                    .font(.caption)
-                    .frame(width: 220)
+                    .toggleStyle(.checkbox)
+                    .padding(.bottom, 3)
             }
         }
+        .font(.body)
         .padding(.vertical, 2)
         .onChange(of: share.name) { _, _ in onEdit() }
         .onChange(of: share.readOnly) { _, _ in onEdit() }
         .onChange(of: share.customTag) { _, _ in onEdit() }
+        .onChange(of: nameIsFocused) { _, focused in
+            if !focused { nameInput = share.name }
+        }
     }
 
-    /// Edits route through the model's charset rules (finding 5): `:` and
-    /// `,` are stripped, spaces map to `-`, and everything outside the
-    /// share charset is dropped — the same `sanitize` `make` uses.
-    private var sanitizedName: Binding<String> {
+    /// Keep raw editing text so a trailing space survives long enough to type
+    /// the next word. Only the normalized value reaches persistence and Tart.
+    private var editableName: Binding<String> {
         Binding(
-            get: { share.name },
+            get: { nameInput },
             set: { newValue in
+                nameInput = newValue
                 onDirty()
                 share.set(name: newValue)
             })
     }
 
     /// `customTag` is optional; the field edits an empty-string view of it.
-    /// Empty input clears the tag; otherwise the same charset rules apply.
+    /// Empty input clears the tag; otherwise spaces map to hyphens and the
+    /// custom-tag charset rules apply.
     private var optionalTag: Binding<String> {
         Binding(
             get: { share.customTag ?? "" },

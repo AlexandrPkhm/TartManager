@@ -12,6 +12,15 @@ public struct AppSettings {
     static let storagePathKey = "storagePath"
     static let sshUserKey = "sshUser"
     static let snapshotsFolderKey = "snapshotsFolder"
+    static let appearanceKey = "appearance"
+
+    /// Appearance preference; missing or unknown values follow macOS.
+    public var appearance: AppAppearance {
+        get {
+            AppAppearance(rawValue: defaults.string(forKey: Self.appearanceKey) ?? "") ?? .system
+        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.appearanceKey) }
+    }
 
     /// Last selected local VM, restored by identity after the first successful inventory.
     public var selectedVMName: String? {

@@ -28,6 +28,18 @@ import Foundation
         #expect(model.requiresOnboarding == false)
     }
 
+    @Test func appearanceLoadsSavedChoiceAndPersistsChanges() {
+        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.appearance = .dark
+        let model = AppModel(settings: settings)
+        #expect(model.appearance == .dark)
+        model.appearance = .light
+        #expect(settings.appearance == .light)
+        model.appearance = .system
+        #expect(settings.appearance == .system)
+    }
+
     @Test func invalidChoiceIsRejectedAndNothingPersists() {
         let dir = makeTempDirectory()
         let model = makeIsolatedModel()

@@ -26,12 +26,32 @@ import Foundation
     }
 
     @Test func defaultNameIsSanitizedFolderName() throws {
-        // The contract the rejected revision violated: spaces map to "-"
-        // (sanitize happens AFTER the space mapping), so a folder with
-        // spaces produces a hyphenated name, not a run-together one.
         let share = try VMFolderShare.makeDefault(hostPath: "/Users/me/My Build Folder")
-        #expect(share.name == "My-Build-Folder")
-        #expect(share.dirArgument.hasPrefix("My-Build-Folder:/Users/me/My Build Folder"))
+        #expect(share.name == "My Build Folder")
+        #expect(share.dirArgument.hasPrefix("My Build Folder:/Users/me/My Build Folder"))
+    }
+
+    @Test func mountNamePreservesInternalSpacesAndTrimsOuterWhitespace() throws {
+        var share = try VMFolderShare.make(name: "  Host Downloads  ",
+                                           hostPath: "/Users/me/Downloads",
+                                           readOnly: false, customTag: nil)
+        #expect(share.name == "Host Downloads")
+        #expect(share.dirArgument == "Host Downloads:/Users/me/Downloads")
+
+        share.set(name: "Host   Downloads")
+        #expect(share.name == "Host   Downloads")
+        share.set(name: "Host: Downloads, Archive")
+        #expect(share.name == "Host Downloads Archive")
+        #expect(share.isValidForPersistence)
+    }
+
+    @Test func customTagStillMapsSpacesToHyphens() throws {
+        var share = try VMFolderShare.make(name: "Host Downloads",
+                                           hostPath: "/Users/me/Downloads",
+                                           readOnly: false, customTag: nil)
+        share.set(customTag: "Host Downloads")
+        #expect(share.customTag == "Host-Downloads")
+        #expect(share.dirArgument == "Host Downloads:/Users/me/Downloads:tag=Host-Downloads")
     }
 
     @Test func validationRejectsBadNamesTagsAndPaths() {
@@ -53,11 +73,11 @@ import Foundation
     // Edit path (finding 5): the row bindings route through these mutating
     // methods, so the same charset rules hold for typed input.
 
-    @Test func setNameStripsAmbiguityCharsAndMapsSpaces() throws {
+    @Test func setNameStripsAmbiguityCharsAndPreservesSpaces() throws {
         var share = try VMFolderShare.make(name: "work", hostPath: "/Users/me/work",
                                            readOnly: false, customTag: nil)
         share.set(name: "My Work")
-        #expect(share.name == "My-Work")
+        #expect(share.name == "My Work")
         share.set(name: "bad:name")
         #expect(share.name == "badname")
         share.set(name: "x,y&z!")

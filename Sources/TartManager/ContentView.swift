@@ -136,6 +136,21 @@ struct ContentView: View {
         HStack(spacing: 9) {
             Text("Tart Manager").font(.system(size: 16, weight: .semibold)).tracking(-0.2)
             Spacer()
+            Menu {
+                AppearancePicker()
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+            } label: {
+                Label("Appearance", systemImage: model.appearance.symbol)
+                    .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Appearance")
+            .accessibilityValue(model.appearance.title)
+            .help("Appearance: \(model.appearance.title)")
             Button { beginImport() } label: { Label("Import", systemImage: "square.and.arrow.down") }
                 .buttonStyle(WorkspaceButtonStyle(flat: true))
                 .help("Import a .tvm archive")
@@ -145,6 +160,7 @@ struct ContentView: View {
         }
         .padding(.leading, 94).padding(.trailing, 18).frame(height: 56)
         .background(WorkspaceStyle.panel)
+        .background(WindowControlsAlignment())
     }
 
     /// Runs the system file picker for `.tvm` archives; the flow stays
