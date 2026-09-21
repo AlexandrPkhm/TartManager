@@ -4,21 +4,19 @@ import SwiftUI
 struct TartManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
+    @State private var mainWindowReopener = MainWindowReopener()
     @State private var showingAbout = false
     @State private var settingsTab: SettingsTab = .general
 
     private enum SettingsTab { case general, storage }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(model)
-                .environmentObject(model.stopCoordinator)
-                .environmentObject(model.suspendCoordinator)
-                .sheet(isPresented: $showingAbout) { AboutView() }
-                .onChange(of: model.appearance, initial: true) { _, appearance in
-                    NSApplication.shared.appearance = appearance.nativeAppearance
-                }
+        WindowGroup(id: MainWindowReopener.mainWindowSceneID) {
+            MainWindowRoot(
+                model: model,
+                reopener: mainWindowReopener,
+                showingAbout: $showingAbout
+            )
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1024, height: 640)
