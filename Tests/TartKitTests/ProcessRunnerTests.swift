@@ -18,6 +18,22 @@ import Foundation
         #expect(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "injected")
     }
 
+    /// tart 2.32.1 binds its per-VM control socket relative to the child's
+    /// working directory (its own chdir into the VM directory fails on
+    /// percent-encoded storage paths — any path with a space), so the runner
+    /// must be able to pin a working directory, spaces included.
+    @Test func runsInTheGivenWorkingDirectory() throws {
+        // Under /private/tmp so pwd's physical output is byte-comparable:
+        // every component is symlink-free (the /var-based
+        // temporaryDirectory would print its /private physical form).
+        let dirPath = "/private/tmp/TartManager space test \(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: dirPath, withIntermediateDirectories: true)
+        let result = try ProcessRunner().run(
+            "/bin/sh", ["-c", "pwd"], workingDirectory: dirPath)
+        #expect(result.exitCode == 0)
+        #expect(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == dirPath)
+    }
+
     @Test func throwsWhenExecutableDoesNotExist() {
         #expect(throws: ProcessRunnerError.self) {
             _ = try ProcessRunner().run("/nonexistent/binary", ["--version"])

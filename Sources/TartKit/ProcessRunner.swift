@@ -52,11 +52,18 @@ public struct ProcessRunner: Sendable {
                     _ arguments: [String],
                     environment: [String: String] = [:],
                     timeout: TimeInterval = ProcessRunner.defaultTimeout,
-                    input: String? = nil) throws -> ProcessResult {
+                    input: String? = nil,
+                    workingDirectory: String? = nil) throws -> ProcessResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.environment = ProcessEnvironment.merged(overrides: environment)
+        if let workingDirectory {
+            // Passed as a raw path string and converted here: tart 2.32.1's
+            // control-socket chdir breaks on percent-encoded URL paths, so
+            // callers never hand URLs around for working directories.
+            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
+        }
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe

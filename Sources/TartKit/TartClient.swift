@@ -93,11 +93,42 @@ public struct TartClient: Sendable {
 }
 
 extension TartClient {
+    /// tart's per-VM control socket filename, bound relative to the run
+    /// process's working directory by tart 2.32.1.
+    public static let controlSocketFilename = "control.sock"
+
+    /// Raw `$TART_HOME/vms/<name>` path, or nil when `TART_HOME` is absent
+    /// from the injected environment or the directory does not exist (a
+    /// run tart itself will refuse). Built by pure string concatenation:
+    /// `URL`'s path accessors percent-encode (a space becomes `%20`),
+    /// which is precisely the tart bug the working-directory contract
+    /// works around, so the path never round-trips through `URL` before
+    /// it reaches `Process.currentDirectoryURL`.
+    public static func vmStoragePath(environment: [String: String], name: String) -> String? {
+        guard let tartHome = environment["TART_HOME"] else { return nil }
+        let path = tartHome + "/vms/" + name
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return nil }
+        return path
+    }
+}
+
+extension TartClient {
     /// Runs a VM as a detached windowed process (always suspend-capable,
     /// enabling the Suspend feature), sharing the given host folders.
     /// `shares` defaults to empty, so callers that do not pass it reproduce
     /// the pre-feature argv `run --suspendable <name>` byte-for-byte; the
     /// window and log defaults stay the shared constants from Issue 4.
+    ///
+    /// Working-directory contract: the child launches from
+    /// `$TART_HOME/vms/<name>` whenever that directory exists. tart 2.32.1
+    /// chdirs there itself before binding its control socket, but the
+    /// chdir target is percent-encoded and fails on storage paths with
+    /// spaces — the socket then silently lands in the child's cwd, where
+    /// only an exec started from that same directory can find it. Pinning
+    /// the cwd to the VM directory restores the intended per-VM socket
+    /// location without depending on tart's broken chdir.
     public func runVM(
         name: String,
         shares: [VMFolderShare] = [],
@@ -116,6 +147,20 @@ extension TartClient {
         let argvLine = "run argv for \(name): \(shares.count) --dir share(s) (\(summary))"
         Logger.sharedFolders.info("\(argvLine, privacy: .public)")
 
+        // Stale-socket hygiene: `RunCoordinator` single-flights launches, so
+        // any leftover `control.sock` in the VM directory belongs to a dead
+        // run; leaving it would make this run's bind fail with EADDRINUSE
+        // — silently, inside tart's fire-and-forget control-socket task.
+        let workingDirectory = Self.vmStoragePath(environment: environment, name: name)
+        if let workingDirectory {
+            let staleSocket = workingDirectory + "/" + Self.controlSocketFilename
+            if FileManager.default.fileExists(atPath: staleSocket) {
+                try? FileManager.default.removeItem(atPath: staleSocket)
+                let line = "removed stale \(Self.controlSocketFilename) for \(name)"
+                Logger.client.info("\(line, privacy: .public)")
+            }
+        }
+
         let launcher = DetachedProcessLauncher()
         do {
             return try launcher.launch(DetachedLaunchConfiguration(
@@ -123,7 +168,8 @@ extension TartClient {
                 arguments: arguments,
                 environment: environment,
                 earlyFailureWindow: earlyFailureWindow,
-                logDirectory: logDirectory))
+                logDirectory: logDirectory,
+                workingDirectory: workingDirectory))
         } catch DetachedLauncherError.exitedQuickly(let exitCode, let output) {
             let failureLine = "run failed within the early-failure window for \(name) "
                 + "(\(shares.count) share(s)); exit \(exitCode): \(output)"

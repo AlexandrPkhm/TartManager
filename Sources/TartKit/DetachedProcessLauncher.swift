@@ -12,17 +12,26 @@ public struct DetachedLaunchConfiguration: Sendable {
     public let earlyFailureWindow: TimeInterval
     /// Where the run log is created; injectable so tests stay isolated.
     public let logDirectory: URL
+    /// Working directory for the child as a raw path string. tart 2.32.1
+    /// binds its per-VM control socket relative to the run process's cwd
+    /// whenever its own chdir into the VM directory fails on a
+    /// percent-encoded storage path; launching with this set to the VM's
+    /// directory keeps the socket in its intended place. Nil keeps the
+    /// parent's cwd.
+    public let workingDirectory: String?
 
     public init(binaryPath: String,
                 arguments: [String],
                 environment: [String: String],
                 earlyFailureWindow: TimeInterval = DetachedLaunchConfiguration.defaultEarlyFailureWindow,
-                logDirectory: URL = FileManager.default.temporaryDirectory) {
+                logDirectory: URL = FileManager.default.temporaryDirectory,
+                workingDirectory: String? = nil) {
         self.binaryPath = binaryPath
         self.arguments = arguments
         self.environment = environment
         self.earlyFailureWindow = earlyFailureWindow
         self.logDirectory = logDirectory
+        self.workingDirectory = workingDirectory
     }
 }
 
@@ -76,6 +85,9 @@ public final class DetachedProcessLauncher: @unchecked Sendable {
         process.executableURL = URL(fileURLWithPath: configuration.binaryPath)
         process.arguments = configuration.arguments
         process.environment = ProcessEnvironment.merged(overrides: configuration.environment)
+        if let workingDirectory = configuration.workingDirectory {
+            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
+        }
 
         let logURL = configuration.logDirectory
             .appendingPathComponent("\(Self.logFilePrefix)\(UUID().uuidString).log")
