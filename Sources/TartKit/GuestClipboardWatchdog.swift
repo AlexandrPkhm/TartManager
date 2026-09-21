@@ -20,10 +20,16 @@ public enum GuestClipboardWatchdog {
     /// with the echoed word when its RPC channel (vsock) is live.
     public static let readinessProbe = "echo ready"
 
-    /// The documented per-boot channel re-establishment command. Runs under
-    /// the guest's `sh -lc`, so `$(id -u)` resolves to the GUI user there.
+    /// The documented per-boot channel re-establishment command, run through
+    /// `tart exec` under the guest's `sh -lc`. Deliberately backgrounded:
+    /// `kickstart -k` restarts the guest agent, which is also the process
+    /// serving this very `tart exec` RPC — a foreground kick would kill the
+    /// exec's own server, so its exit status could never be delivered (the
+    /// exec would hang until the client's timeout). Detaching the kill lets
+    /// the exec return immediately; the restart lands a moment later, which
+    /// the coordinator's re-readiness poll observes.
     public static let agentKickstartCommand =
-        "launchctl kickstart -k gui/$(id -u)/org.cirruslabs.tart-guest-agent"
+        "launchctl kickstart -k gui/$(id -u)/org.cirruslabs.tart-guest-agent >/dev/null 2>&1 &"
 
     /// The watchdog shell script written into the guest. Two branches, one
     /// kickstart: first load after login waits for the session and kicks

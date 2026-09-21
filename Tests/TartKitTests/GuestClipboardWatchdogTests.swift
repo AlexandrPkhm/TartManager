@@ -6,8 +6,11 @@ import Foundation
     @Test func exactCommandConstantsMatchTheGuestAgentLabel() {
         #expect(GuestClipboardWatchdog.label == "com.tartmanager.clipboard-watchdog")
         #expect(GuestClipboardWatchdog.readinessProbe == "echo ready")
+        // Backgrounded on purpose: a foreground kick kills the very guest
+        // agent serving this exec's RPC, so the exec could never return its
+        // exit status (it would hang until the client timeout).
         #expect(GuestClipboardWatchdog.agentKickstartCommand
-            == "launchctl kickstart -k gui/$(id -u)/org.cirruslabs.tart-guest-agent")
+            == "launchctl kickstart -k gui/$(id -u)/org.cirruslabs.tart-guest-agent >/dev/null 2>&1 &")
     }
 
     @Test func watchdogScriptKicksOnBootAndOnClockJump() {
