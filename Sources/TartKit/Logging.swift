@@ -62,4 +62,7 @@ public extension Logger {
     /// App icon resolution: which layout supplied the icon and the fallback
     /// to the system application icon when none did.
     static let icon = Logger(subsystem: "app.TartManager", category: "icon")
+    /// Guest-clipboard watchdog lifecycle: guest readiness polls, agent
+    /// kickstarts, watchdog installs, and every degrade decision.
+    static let clipboard = Logger(subsystem: "app.TartManager", category: "clipboard")
 }

@@ -69,6 +69,39 @@ import Foundation
         #expect(result == .invalid(path: dir, reason: "Folder is not writable."))
         #expect(model.settings.storagePath == nil)
     }
+
+    @Test func successfulResourceApplyPersistsDisplayRefitChoice() async throws {
+        let dir = makeTempDirectory()
+        let invocationFile = dir + "/invocation.txt"
+        let binaryPath = dir + "/tart"
+        let script = """
+        #!/bin/sh
+        if [ "$1" = "set" ]; then
+          echo "$@" > "\(invocationFile)"
+        fi
+        exit 0
+        """
+        try script.write(toFile: binaryPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
+
+        let suite = "AppModelTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let model = AppModel(settings: AppSettings(defaults: defaults))
+        model.settings.storagePath = dir
+        model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
+                                 binaryPath: binaryPath)
+        let vm = VMEntry(name: "vm-a", source: "local", running: false, state: "stopped",
+                         diskSize: 40, diskUsage: 0, accessed: nil)
+        model.inventoryService.updateFetch { [vm] }
+        await model.inventoryService.refresh()
+
+        await model.apply(fields: ResourceEditorFields(displayRefit: true), to: vm)
+
+        #expect(model.settings.displayRefitPreference(for: vm.name) == true)
+        #expect(try String(contentsOfFile: invocationFile, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines) == "set vm-a --display-refit")
+    }
 }
 
 // Appended by Issue 9 (findings 4, 15): the create gate and name-availability
@@ -205,6 +238,53 @@ extension AppModelTests {
         #expect(model.createFromIPSWBlockReason(name: "vm", diskSizeGB: 0) != nil)
         #expect(model.createFromIPSWBlockReason(name: "vm", diskSizeGB: -5) != nil)
         #expect(model.createFromIPSWBlockReason(name: "vm", diskSizeGB: 4097) != nil)
+    }
+
+    /// A darwin run triggers the clipboard-watchdog flow end to end: the
+    /// recording stub sees the readiness probes, the agent kickstart, and the
+    /// guest watchdog install — with zero user-facing surface.
+    @Test func runOfADarwinVMKicksAndInstallsTheGuestClipboardWatchdog() async throws {
+        let suite = "AppModelTests-clipboard-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let dir = makeTempDirectory()
+        let model = AppModel(settings: AppSettings(defaults: defaults))
+        _ = model.attemptChooseStorage(path: dir)
+
+        let invocationFile = dir + "/invocation.txt"
+        let configJSON =
+            #"{"OS":"darwin","CPU":4,"Memory":8192,"Disk":40,"DiskFormat":"raw","Size":"27.123","Display":"1024x768"}"#
+        let stubScript = """
+        #!/bin/sh
+        case "$1" in
+          list) echo '[]' ;;
+          get) printf '%s\\n' '\(configJSON)' ;;
+          run) sleep 8; exit 0 ;;
+          exec) echo "$@" >> "\(invocationFile)"; printf 'ready\\n' ;;
+          *) exit 0 ;;
+        esac
+        """
+        let stubPath = dir + "/tart"
+        try stubScript.write(toFile: stubPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stubPath)
+        model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
+                                 binaryPath: stubPath)
+
+        let vm = VMEntry(name: "vm-clip", source: "local", running: false, state: "stopped",
+                         diskSize: 50, diskUsage: 10, accessed: nil)
+        await model.requestRun(vm: vm)
+
+        // The watchdog follow-up is fire-and-forget on a production deadline;
+        // poll the stub's recording for both the kick and the install.
+        let deadline = Date().addingTimeInterval(10)
+        var text = ""
+        while Date() < deadline {
+            text = (try? String(contentsOfFile: invocationFile, encoding: .utf8)) ?? ""
+            if text.contains("launchctl kickstart") && text.contains("launchctl bootstrap") { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(text.contains("launchctl kickstart -k gui/$(id -u)/org.cirruslabs.tart-guest-agent"))
+        #expect(text.contains("launchctl bootstrap gui/$(id -u)"))
     }
 }
 

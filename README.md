@@ -105,6 +105,23 @@ diagnosis:
 
     log stream --predicate 'subsystem == "app.TartManager" AND category == "suspend"'
 
+## Clipboard watchdog
+
+Tart's clipboard sharing between you and a macOS guest goes stale after every
+VM restart: the guest agent keeps running, but its channel does not survive the
+stop/start (or suspend/resume) cycle. After each run Tart Manager re-kicks the
+guest agent for you and installs a small LaunchAgent
+(`com.tartmanager.clipboard-watchdog`) inside darwin guests that repeats that
+fix after every boot and suspend/resume — including restarts made outside
+Tart Manager. The repair is best-effort background hygiene: it never blocks or
+fails a run, and every outcome is logged under the `clipboard` category:
+
+    log stream --predicate 'subsystem == "app.TartManager" AND category == "clipboard"'
+
+To uninstall the guest-side watchdog, delete
+`com.tartmanager.clipboard-watchdog.plist` from the guest's
+`~/Library/LaunchAgents`.
+
 ## Replace a VM's Disk
 
 Right-click a stopped VM → **Replace Disk…** → choose a raw `.img` disk image

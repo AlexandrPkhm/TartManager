@@ -155,6 +155,12 @@ final class AppModel: ObservableObject {
 
     let runCoordinator = RunCoordinator()
 
+    /// Re-establishes and then keeps Tart clipboard sharing alive after
+    /// every app-launched run: kicks the guest agent immediately and
+    /// installs the guest-side watchdog. Best-effort background hygiene —
+    /// failures are logged under `clipboard`, never presented.
+    let clipboardWatchdog = ClipboardWatchdogCoordinator()
+
     /// The normalized failure currently presented by the standard report sheet.
     /// When a new failure arrives while one is presented, it supersedes the
     /// prior one (no queue in v1): the sheet always shows the most recent
@@ -552,6 +558,10 @@ final class AppModel: ObservableObject {
             // Coalesced refresh: skipped when a poll just completed; the
             // poll (≤3 s) is the reconciler of record for the new state.
             await inventoryService.refreshIfStale()
+            // Clipboard hygiene for darwin guests: kick the guest agent and
+            // (re)install its watchdog. Fire-and-forget background work —
+            // it must never block or fail the run (degrades are logged).
+            Task { await clipboardWatchdog.ensureInstalled(name: vm.name, client: client) }
         case .alreadyLaunching:
             break // a fast double-click raced; the first launch is authoritative
         case .failed(_, _, let cause):
@@ -764,21 +774,24 @@ final class AppModel: ObservableObject {
                 rawDetails: validation.errors.joined(separator: "\n")))
             return
         }
-        await runSetOperation(current, operation: "set") { client in
+        let succeeded = await runSetOperation(current, operation: "set") { client in
             try client.set(name: current.name, update: update)
+        }
+        if succeeded, let displayRefit = update.displayRefit {
+            settings.setDisplayRefitPreference(displayRefit, for: current.name)
         }
     }
 
     /// Regenerates the MAC address of a stopped VM.
     func regenerateMAC(for entry: VMEntry) async {
-        await runSetOperation(entry, operation: "set --random-mac") { client in
+        _ = await runSetOperation(entry, operation: "set --random-mac") { client in
             try client.regenerateMAC(name: entry.name)
         }
     }
 
     /// Regenerates the serial number of a stopped VM.
     func regenerateSerial(for entry: VMEntry) async {
-        await runSetOperation(entry, operation: "set --random-serial") { client in
+        _ = await runSetOperation(entry, operation: "set --random-serial") { client in
             try client.regenerateSerial(name: entry.name)
         }
     }
@@ -788,11 +801,11 @@ final class AppModel: ObservableObject {
     /// and detail+inventory refresh on success (always).
     private func runSetOperation(_ entry: VMEntry,
                                  operation: String,
-                                 _ operationBody: @escaping @Sendable (TartClient) throws -> Void) async {
+                                 _ operationBody: @escaping @Sendable (TartClient) throws -> Void) async -> Bool {
         guard entry.canEditResources else {
             Logger.resources.warning(
                 "\(operation, privacy: .public) blocked: \(entry.name, privacy: .public) is \(entry.state, privacy: .public)")
-            return
+            return false
         }
         let succeeded = await runForegroundOperation(
             operation,
@@ -804,6 +817,7 @@ final class AppModel: ObservableObject {
             await refreshSelectedDetails()
             await inventoryService.refresh()
         }
+        return succeeded
     }
 
     // MARK: Shared foreground-operation wrapper (used by resource editing too)

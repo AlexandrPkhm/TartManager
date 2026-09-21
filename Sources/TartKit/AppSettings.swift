@@ -91,6 +91,26 @@ public struct AppSettings {
 
 extension AppSettings {
     static let sharedFoldersKey = "vmSharedFolders"
+    static let displayRefitPreferencesKey = "vmDisplayRefitPreferences"
+
+    /// The last display-refit choice successfully applied for a VM. Tart's
+    /// `get` output does not expose this field, so the app retains its own
+    /// confirmed value and resends it with later resource updates.
+    public func displayRefitPreference(for vm: String) -> Bool? {
+        displayRefitPreferences[vm]
+    }
+
+    /// Records a display-refit choice only after `tart set` has accepted it.
+    /// This is per VM: names do not share display behavior.
+    public func setDisplayRefitPreference(_ enabled: Bool, for vm: String) {
+        var preferences = displayRefitPreferences
+        preferences[vm] = enabled
+        defaults.set(preferences, forKey: Self.displayRefitPreferencesKey)
+    }
+
+    private var displayRefitPreferences: [String: Bool] {
+        defaults.dictionary(forKey: Self.displayRefitPreferencesKey) as? [String: Bool] ?? [:]
+    }
 
     /// Saved host-folder shares for a VM (empty for unknown VMs).
     public func sharedFolders(for vm: String) -> [VMFolderShare] {

@@ -89,6 +89,20 @@ import Foundation
         #expect(settings.pruneRetentionDays == 14)
     }
 
+    @Test func displayRefitPreferenceRoundTripsPerVM() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.displayRefitPreference(for: "vm-a") == nil)
+
+        settings.setDisplayRefitPreference(true, for: "vm-a")
+        settings.setDisplayRefitPreference(false, for: "vm-b")
+
+        let restored = AppSettings(defaults: defaults)
+        #expect(restored.displayRefitPreference(for: "vm-a") == true)
+        #expect(restored.displayRefitPreference(for: "vm-b") == false)
+        #expect(restored.displayRefitPreference(for: "vm-c") == nil)
+    }
+
     func share(_ name: String) throws -> VMFolderShare {
         try VMFolderShare.make(name: name, hostPath: "/tmp/\(name)",
                                readOnly: false, customTag: nil)

@@ -182,7 +182,10 @@ struct VMDetailSettingsSection: View {
         // tart get's Display is already a string ("1200x800" with optional
         // pt/px units), copied verbatim.
         displayText = details.config?.displayText ?? ""
-        refitOverride = nil
+        // `tart get` does not report display-refit. Restore the last value
+        // TartManager successfully applied so reopening the panel and later
+        // resource edits do not lose the user's choice.
+        refitOverride = model.settings.displayRefitPreference(for: details.entry.name)
     }
 
     /// tart only randomizes serials on Darwin guests; when the guest OS is

@@ -296,6 +296,40 @@ extension TartClient {
 }
 
 extension TartClient {
+    /// Runs a shell command inside a running VM through `tart exec` and
+    /// returns its trimmed stdout on success. Throws the standard
+    /// `TartClientError.commandFailed` when the guest agent is unreachable
+    /// or the command exits non-zero — callers polling for guest readiness
+    /// treat thrown errors as "not ready yet", never surface them raw.
+    /// The command string runs under the guest's `sh -lc`, so constructs
+    /// like `$(id -u)` expand against the guest, not the host.
+    /// Runs with `$TART_HOME/vms/<name>` as its working directory — the
+    /// same per-VM cwd `runVM` pins its runs to, because tart 2.32.1's
+    /// control socket lands in (and is only reachable from) that
+    /// directory on space-containing storage paths.
+    public func exec(name: String, command: String) throws -> String {
+        try Self.rejectLeadingDash(command: "exec", values: [name])
+        let result: ProcessResult
+        do {
+            result = try runner.run(binaryPath,
+                                    ["exec", name, "sh", "-lc", command],
+                                    environment: environment,
+                                    timeout: timeout,
+                                    workingDirectory: Self.vmStoragePath(environment: environment, name: name))
+        } catch let error as ProcessRunnerError {
+            throw Self.mapping(error, command: "exec")
+        } catch {
+            throw TartClientError.launchFailed(command: "exec", executable: binaryPath)
+        }
+        guard result.exitCode == 0 else {
+            throw TartClientError.commandFailed(command: "exec", exitCode: result.exitCode,
+                                                 stdout: result.stdout, stderr: result.stderr)
+        }
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+extension TartClient {
     /// Applies a resource update. Callers (AppModel) validate first; this
     /// method is a pure CLI boundary. Runs under the client's per-run
     /// deadline so a wedged tart surfaces as `.timedOut`, never a hang.

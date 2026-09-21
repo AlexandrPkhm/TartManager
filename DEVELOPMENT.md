@@ -221,8 +221,8 @@ variables, registries, logging on deployed machines — is documented in
   ```
 
   Feature-specific categories are documented in `README.md` (`stop`,
-  `suspend`, `replaceDisk`, `overcommit`, `registries`, …); the full
-  category list is in `Sources/TartKit/Logging.swift`.
+  `suspend`, `replaceDisk`, `overcommit`, `registries`, `clipboard`, …); the
+  full category list is in `Sources/TartKit/Logging.swift`.
 - Dismissed error reports remain diagnosable with the same predicate —
   every normalized failure is logged.
 
