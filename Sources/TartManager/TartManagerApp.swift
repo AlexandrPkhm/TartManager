@@ -35,6 +35,11 @@ struct TartManagerApp: App {
                     .tag(SettingsTab.storage)
             }
             .frame(width: 640, height: settingsTab == .general ? 320 : 620)
+            .background(WorkspaceStyle.background)
+            .foregroundStyle(WorkspaceStyle.text)
+            .tint(WorkspaceStyle.accent)
+            .toolbarBackground(WorkspaceStyle.panel, for: .windowToolbar)
+            .toolbarBackground(.visible, for: .windowToolbar)
             .environmentObject(model)
             // Settings remains usable when all main windows are closed.
             .onChange(of: model.appearance, initial: true) { _, appearance in
