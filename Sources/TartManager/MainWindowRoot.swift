@@ -2,9 +2,8 @@ import SwiftUI
 
 struct MainWindowRoot: View {
     let model: AppModel
-    let reopener: MainWindowReopener
+    let applicationActivationPolicy: ApplicationActivationPolicy
     @Binding var showingAbout: Bool
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         ContentView()
@@ -12,11 +11,7 @@ struct MainWindowRoot: View {
             .environmentObject(model.stopCoordinator)
             .environmentObject(model.suspendCoordinator)
             .sheet(isPresented: $showingAbout) { AboutView() }
-            .onAppear {
-                reopener.register {
-                    openWindow(id: MainWindowReopener.mainWindowSceneID)
-                }
-            }
+            .onDisappear { applicationActivationPolicy.mainWindowDidClose() }
             .onChange(of: model.appearance, initial: true) { _, appearance in
                 NSApplication.shared.appearance = appearance.nativeAppearance
             }

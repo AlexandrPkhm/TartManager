@@ -8,6 +8,15 @@ snapshots — without a terminal.
 Early in development. Targets macOS 14+, wraps the locally installed
 `tart` CLI (which must be installed separately).
 
+## Menu bar controls
+
+Tart Manager appears in the macOS menu bar as an Outline T. Select a local VM
+to Run or Resume it when stopped or suspended, or gracefully Stop it when
+running. The menu shares the main window's safety checks, first-run reminders,
+memory warnings, inventory refreshes, and error reports. It also includes
+Refresh, Settings…, and Open Tart Manager. Suspend, Force Stop, VM creation,
+and destructive actions remain in the main window.
+
 ## Development
 
 Open the package root and run:

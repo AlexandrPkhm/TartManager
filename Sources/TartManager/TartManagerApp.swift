@@ -4,17 +4,17 @@ import SwiftUI
 struct TartManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
-    @State private var mainWindowReopener = MainWindowReopener()
+    @State private var applicationActivationPolicy = ApplicationActivationPolicy()
     @State private var showingAbout = false
     @State private var settingsTab: SettingsTab = .general
 
     private enum SettingsTab { case general, storage }
 
     var body: some Scene {
-        WindowGroup(id: MainWindowReopener.mainWindowSceneID) {
+        WindowGroup(id: ApplicationActivationPolicy.mainWindowSceneID) {
             MainWindowRoot(
                 model: model,
-                reopener: mainWindowReopener,
+                applicationActivationPolicy: applicationActivationPolicy,
                 showingAbout: $showingAbout
             )
         }
@@ -25,6 +25,14 @@ struct TartManagerApp: App {
                 Button("About Tart Manager") { showingAbout = true }
             }
         }
+        MenuBarExtra {
+            MenuBarView(applicationActivationPolicy: applicationActivationPolicy)
+                .environmentObject(model)
+        } label: {
+            Image(nsImage: MenuBarIcon.image)
+                .accessibilityLabel("Tart Manager")
+        }
+        .menuBarExtraStyle(.menu)
         Settings {
             TabView(selection: $settingsTab) {
                 GeneralSettingsView()
