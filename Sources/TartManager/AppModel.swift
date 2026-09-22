@@ -29,7 +29,10 @@ private final class SyncResultBox: @unchecked Sendable {
 final class AppModel: ObservableObject {
     @Published var settings: AppSettings
     @Published var appearance: AppAppearance {
-        didSet { settings.appearance = appearance }
+        didSet {
+            settings.appearance = appearance
+            NSApplication.shared.appearance = appearance.nativeAppearance
+        }
     }
     @Published var prerequisite: TartPrerequisiteStatus?
     @Published var isCheckingPrerequisite = false
@@ -46,6 +49,7 @@ final class AppModel: ObservableObject {
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard)) {
         self.settings = settings
         self.appearance = settings.appearance
+        NSApplication.shared.appearance = settings.appearance.nativeAppearance
         self.firstRunReminder = firstRunReminder
         // Poll failures re-probe storage availability: an unmounted volume
         // flips the app to the dedicated unavailable state without a restart,

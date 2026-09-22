@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import AppKit
 @testable import TartKit
 @testable import TartManager
 
@@ -38,6 +39,33 @@ import Foundation
         #expect(settings.appearance == .light)
         model.appearance = .system
         #expect(settings.appearance == .system)
+    }
+
+    @Test func savedAppearanceIsAppliedWhenModelInitializes() {
+        let originalAppearance = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = originalAppearance }
+        NSApplication.shared.appearance = nil
+
+        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.appearance = .dark
+
+        _ = AppModel(settings: settings)
+
+        #expect(NSApplication.shared.appearance?.name == .darkAqua)
+    }
+
+    @Test func selectedAppearanceIsAppliedImmediately() {
+        let originalAppearance = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = originalAppearance }
+        NSApplication.shared.appearance = nil
+
+        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let model = AppModel(settings: AppSettings(defaults: defaults))
+
+        model.appearance = .light
+
+        #expect(NSApplication.shared.appearance?.name == .aqua)
     }
 
     @Test func invalidChoiceIsRejectedAndNothingPersists() {

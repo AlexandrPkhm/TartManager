@@ -49,10 +49,6 @@ struct TartManagerApp: App {
             .toolbarBackground(WorkspaceStyle.panel, for: .windowToolbar)
             .toolbarBackground(.visible, for: .windowToolbar)
             .environmentObject(model)
-            // Settings remains usable when all main windows are closed.
-            .onChange(of: model.appearance, initial: true) { _, appearance in
-                NSApplication.shared.appearance = appearance.nativeAppearance
-            }
         }
         .windowResizability(.contentSize)
     }

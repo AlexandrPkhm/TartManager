@@ -12,8 +12,5 @@ struct MainWindowRoot: View {
             .environmentObject(model.suspendCoordinator)
             .sheet(isPresented: $showingAbout) { AboutView() }
             .onDisappear { applicationActivationPolicy.mainWindowDidClose() }
-            .onChange(of: model.appearance, initial: true) { _, appearance in
-                NSApplication.shared.appearance = appearance.nativeAppearance
-            }
     }
 }
