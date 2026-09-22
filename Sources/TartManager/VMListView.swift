@@ -119,15 +119,19 @@ struct VMListView: View {
 
     private var engineStatus: some View {
         HStack(spacing: 7) {
+            SettingsLink {
+                Label("Settings", systemImage: "gearshape")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+            .accessibilityLabel("Settings")
+            .help("Settings")
+            Spacer(minLength: 0)
             Circle().fill(model.prerequisite?.isSatisfied == true ? WorkspaceStyle.green : .orange)
                 .frame(width: 6, height: 6)
             Text(engineVersion)
-            Spacer(minLength: 4)
-            Button { Task { await inventoryService.refresh() } } label: {
-                Text(model.prerequisite?.isSatisfied == true ? "Ready" : "Check setup")
-            }
-            .buttonStyle(.plain).help("Refresh inventory")
-            .accessibilityLabel("Refresh inventory")
         }
         .font(.system(size: 11)).foregroundStyle(WorkspaceStyle.muted)
     }
