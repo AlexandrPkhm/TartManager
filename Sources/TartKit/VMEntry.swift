@@ -17,9 +17,18 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
     /// On-disk usage (tart's `Size` key).
     public let diskUsage: Double
     public let accessed: Date?
+    /// Guest OS (`"darwin"` | `"linux"`), attached by `TartClient.list()` from
+    /// the VM's on-disk `config.json` — `tart list` itself omits it. nil for
+    /// OCI rows and when the config could not be read.
+    public let guestOS: String?
 
     public var id: String { name }
     public var isLocal: Bool { source == "local" }
+
+    /// Whether tart can suspend this VM. macOS guests only: tart 2.32 refuses
+    /// both `run --suspendable` and `suspend` for every other guest. The one
+    /// predicate shared by the run configuration and the Suspend affordances.
+    public var supportsSuspend: Bool { VMGuestOS.supportsSuspend(guestOS) }
 
     /// Whether the app may run `tart set`-family edits on this VM.
     /// The single source of truth for the stopped-only gate — the view and
@@ -36,7 +45,8 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
     }
 
     public init(name: String, source: String, running: Bool, state: String,
-                diskSize: Double, diskUsage: Double, accessed: Date?) {
+                diskSize: Double, diskUsage: Double, accessed: Date?,
+                guestOS: String? = nil) {
         self.name = name
         self.source = source
         self.running = running
@@ -44,6 +54,7 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
         self.diskSize = diskSize
         self.diskUsage = diskUsage
         self.accessed = accessed
+        self.guestOS = guestOS
     }
 }
 
@@ -75,6 +86,9 @@ extension VMEntry: Decodable {
         diskSize = try container.decodeIfPresent(Double.self, forKey: .diskSize) ?? 0
         diskUsage = try container.decodeIfPresent(Double.self, forKey: .diskUsage) ?? 0
         accessed = try container.decodeIfPresent(Date.self, forKey: .accessed)
+        // `tart list` omits the guest OS; `TartClient.list()` attaches it
+        // from the VM's on-disk config after decoding.
+        guestOS = nil
     }
 }
 
@@ -104,6 +118,15 @@ public enum SuspendedStateReporting {
 }
 
 extension VMEntry {
+    /// Returns a copy with the guest OS attached — the inventory enrichment
+    /// step (`TartClient.list()`) that keeps every downstream consumer (run
+    /// configuration, Suspend affordances) off the raw `config.json`.
+    public func withGuestOS(_ os: String?) -> VMEntry {
+        VMEntry(name: name, source: source, running: running, state: state,
+                diskSize: diskSize, diskUsage: diskUsage, accessed: accessed,
+                guestOS: os)
+    }
+
     /// True when tart's list reports this VM as suspended (per Task 0).
     public var isSuspended: Bool {
         SuspendedStateReporting.isSuspendedState(state)

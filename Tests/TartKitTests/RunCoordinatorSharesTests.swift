@@ -11,8 +11,11 @@ import Foundation
             try VMFolderShare.make(name: "work", hostPath: "/Users/me/work",
                                    readOnly: true, customTag: nil),
         ]
+        let storage = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
         let outcome = await coordinator.launch(
-            name: "vm-a", using: TartClient(binaryPath: stubPath),
+            name: "vm-a",
+            using: TartClient(binaryPath: stubPath,
+                              environment: TartCommandEnvironment(storagePath: storage).environment),
             shares: shares, earlyFailureWindow: 0.2)
         guard case .started(let handle) = outcome else {
             Issue.record("expected .started, got \(outcome)")
@@ -36,8 +39,11 @@ import Foundation
     @Test func coordinatorWithoutSharesKeepsThePrefeatureArgv() async throws {
         let (stubPath, invocationFile) = StubBinary.makeRecordingStub(sustainSeconds: 30)
         let coordinator = RunCoordinator()
+        let storage = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
         let outcome = await coordinator.launch(
-            name: "vm-a", using: TartClient(binaryPath: stubPath),
+            name: "vm-a",
+            using: TartClient(binaryPath: stubPath,
+                              environment: TartCommandEnvironment(storagePath: storage).environment),
             earlyFailureWindow: 0.2)
         guard case .started(let handle) = outcome else {
             Issue.record("expected .started, got \(outcome)")

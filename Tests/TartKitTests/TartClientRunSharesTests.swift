@@ -3,11 +3,17 @@ import Foundation
 @testable import TartKit
 
 @Suite struct TartClientRunSharesTests {
+    func macOSClient(stubPath: String) -> TartClient {
+        let storage = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
+        return TartClient(binaryPath: stubPath,
+                          environment: TartCommandEnvironment(storagePath: storage).environment)
+    }
+
     @Test func zeroSharesReproduceThePrefeatureArgv() throws {
         let (stubPath, invocationFile) = StubBinary.makeRecordingStub(sustainSeconds: 30)
-        let client = TartClient(binaryPath: stubPath)
+        let client = macOSClient(stubPath: stubPath)
         // Deliberately omits `shares` — the default must reproduce Issue 4's
-        // exact argv (AC 9).
+        // exact argv (AC 9) for a macOS guest.
         let handle = try client.runVM(name: "vm-a", earlyFailureWindow: 0.2)
         defer { handle.process.terminate(); handle.process.waitUntilExit() }
         // The stub spawn is not synchronous with `.started`; poll briefly
@@ -26,7 +32,7 @@ import Foundation
 
     @Test func sharesRenderAsOrderedDirFlags() throws {
         let (stubPath, invocationFile) = StubBinary.makeRecordingStub(sustainSeconds: 30)
-        let client = TartClient(binaryPath: stubPath)
+        let client = macOSClient(stubPath: stubPath)
         let shares = [
             try VMFolderShare.make(name: "build", hostPath: "/Users/me/src/build",
                                    readOnly: true, customTag: nil),
@@ -77,5 +83,30 @@ import Foundation
     @Test func runVMKeepsTheSharedEarlyFailureWindowDefault() {
         // 4-AFK finding 7: the 5 s window remains the single named constant.
         #expect(DetachedLaunchConfiguration.defaultEarlyFailureWindow == 5)
+    }
+
+    /// Linux guests keep their shares but never the flag tart refuses.
+    @Test func linuxGuestKeepsDirFlagsWithoutTheSuspendableFlag() throws {
+        let (stubPath, invocationFile) = StubBinary.makeRecordingStub(sustainSeconds: 30)
+        let storage = VMStorageFixture.make(storageWithVM: "vm-a", os: "linux")
+        let client = TartClient(binaryPath: stubPath,
+                                environment: TartCommandEnvironment(storagePath: storage).environment)
+        let shares = [
+            try VMFolderShare.make(name: "work", hostPath: "/Users/me/work",
+                                   readOnly: true, customTag: nil),
+        ]
+        let handle = try client.runVM(name: "vm-a", shares: shares, earlyFailureWindow: 0.2)
+        defer { handle.process.terminate(); handle.process.waitUntilExit() }
+        // The stub spawn is not synchronous with `.started`; poll briefly
+        // for CONTENT, not just existence (the shell's `>>` redirection
+        // creates the file an instant before `echo` writes it).
+        let deadline = Date().addingTimeInterval(5)
+        var invocation = ""
+        while invocation.isEmpty, Date() < deadline {
+            invocation = (try? String(contentsOfFile: invocationFile, encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if invocation.isEmpty { Thread.sleep(forTimeInterval: 0.02) }
+        }
+        #expect(invocation == "run --dir work:/Users/me/work:ro vm-a")
     }
 }

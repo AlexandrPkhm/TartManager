@@ -50,7 +50,9 @@ public struct TartClient: Sendable {
     public static let stopCommandTimeout: TimeInterval = 90
 
     /// Lists local VMs and OCI images in the configured storage.
-    /// Every failure mode surfaces as a `TartClientError`.
+    /// Every failure mode surfaces as a `TartClientError`. Local entries are
+    /// enriched with the guest OS from their on-disk `config.json` (which
+    /// `tart list` omits), so UI gates and run decisions key on one value.
     public func list() throws -> [VMEntry] {
         let result: ProcessResult
         do {
@@ -67,10 +69,17 @@ public struct TartClient: Sendable {
                 command: "list", exitCode: result.exitCode,
                 stdout: result.stdout, stderr: result.stderr)
         }
+        let entries: [VMEntry]
         do {
-            return try Self.decodeEntries(Data(result.stdout.utf8))
+            entries = try Self.decodeEntries(Data(result.stdout.utf8))
         } catch {
             throw TartClientError.decodingFailed(command: "list", output: result.stdout)
+        }
+        return entries.map { entry in
+            guard entry.isLocal,
+                  let directory = Self.vmStoragePath(environment: environment, name: entry.name)
+            else { return entry }
+            return entry.withGuestOS(VMGuestOS.read(atVMDirectory: directory))
         }
     }
 
@@ -115,11 +124,15 @@ extension TartClient {
 }
 
 extension TartClient {
-    /// Runs a VM as a detached windowed process (always suspend-capable,
-    /// enabling the Suspend feature), sharing the given host folders.
-    /// `shares` defaults to empty, so callers that do not pass it reproduce
-    /// the pre-feature argv `run --suspendable <name>` byte-for-byte; the
-    /// window and log defaults stay the shared constants from Issue 4.
+    /// Runs a VM as a detached windowed process, sharing the given host
+    /// folders. macOS guests launch in the suspend-capable configuration
+    /// (`--suspendable`, enabling the Suspend feature); Linux guests omit the
+    /// flag because tart 2.32 refuses it for non-macOS guests ("You can only
+    /// suspend macOS VMs", exit 64) — the refusal that made every Linux VM
+    /// launch fail. `shares` defaults to empty, so callers that do not pass it
+    /// reproduce the pre-feature argv `run --suspendable <name>` byte-for-byte
+    /// for macOS guests; the window and log defaults stay the shared constants
+    /// from Issue 4.
     ///
     /// Working-directory contract: the child launches from
     /// `$TART_HOME/vms/<name>` whenever that directory exists. tart 2.32.1
@@ -135,7 +148,16 @@ extension TartClient {
         earlyFailureWindow: TimeInterval = DetachedLaunchConfiguration.defaultEarlyFailureWindow,
         logDirectory: URL = FileManager.default.temporaryDirectory
     ) throws -> DetachedProcessHandle {
-        var arguments = ["run", "--suspendable"]
+        let workingDirectory = Self.vmStoragePath(environment: environment, name: name)
+        // The guest OS is a property of the VM, not the caller: reading it
+        // here keeps every run path (first run, resume, future callers) on
+        // the same argv rule with no way to reintroduce the Linux refusal.
+        let guestOS = workingDirectory.flatMap { VMGuestOS.read(atVMDirectory: $0) }
+        let suspendable = VMGuestOS.supportsSuspend(guestOS)
+        var arguments = ["run"]
+        if suspendable {
+            arguments.append("--suspendable")
+        }
         for share in shares {
             arguments += ["--dir", share.dirArgument]
         }
@@ -146,12 +168,14 @@ extension TartClient {
             .joined(separator: ", ")
         let argvLine = "run argv for \(name): \(shares.count) --dir share(s) (\(summary))"
         Logger.sharedFolders.info("\(argvLine, privacy: .public)")
+        let configLine = "run configuration for \(name): guestOS=\(guestOS ?? "unknown"), "
+            + "suspendable=\(suspendable)"
+        Logger.client.info("\(configLine, privacy: .public)")
 
         // Stale-socket hygiene: `RunCoordinator` single-flights launches, so
         // any leftover `control.sock` in the VM directory belongs to a dead
         // run; leaving it would make this run's bind fail with EADDRINUSE
         // — silently, inside tart's fire-and-forget control-socket task.
-        let workingDirectory = Self.vmStoragePath(environment: environment, name: name)
         if let workingDirectory {
             let staleSocket = workingDirectory + "/" + Self.controlSocketFilename
             if FileManager.default.fileExists(atPath: staleSocket) {

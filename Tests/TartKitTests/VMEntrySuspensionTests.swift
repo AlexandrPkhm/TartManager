@@ -71,4 +71,12 @@ import Foundation
                           diskSize: 0, diskUsage: 0, accessed: nil)
         #expect(!oci.isStoppedLocal)
     }
+
+    /// Suspend is macOS-only (tart refuses Linux guests outright), so the
+    /// affordances key on the guest OS attached by `TartClient.list()`.
+    @Test func suspendSupportIsMacOSOnly() {
+        #expect(entry("running").withGuestOS("darwin").supportsSuspend)
+        #expect(!entry("running").withGuestOS("linux").supportsSuspend)
+        #expect(!entry("running").supportsSuspend) // unattached OS is not macOS
+    }
 }

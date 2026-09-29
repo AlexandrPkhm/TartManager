@@ -52,16 +52,17 @@ public enum TartErrorAnalyzer {
         Cirrus Labs OCI image) instead of installing this IPSW on this Mac.
         """
 
-    /// Explanatory hint for suspend failures: only VMs started with the
-    /// suspend-capable configuration (which Tart Manager always uses) can
-    /// be suspended. Attached to *any* suspend failure, not pattern-matched:
-    /// the refusal text diverges across tart versions (Research).
+    /// Explanatory hint for suspend failures: only macOS VMs started with
+    /// the suspend-capable configuration (which Tart Manager uses for macOS
+    /// guests) can be suspended. Attached to *any* suspend failure, not
+    /// pattern-matched: the refusal text diverges across tart versions
+    /// (Research).
     public static let suspendHint = """
-        Suspend only works for VMs started with the suspend-capable \
+        Suspend only works for macOS VMs started with the suspend-capable \
         configuration (tart's `--suspendable` run flag), which Tart Manager \
-        always uses. This VM was most likely started outside Tart Manager \
-        without it — stop it here, then run it from Tart Manager. (VMs in \
-        the suspend-capable configuration have guest audio disabled.)
+        uses for macOS guests. This VM was most likely started outside Tart \
+        Manager without it — stop it here, then run it from Tart Manager. \
+        (VMs in the suspend-capable configuration have guest audio disabled.)
         """
 
     /// Capture budget per stream for `rawDetails`: a verbose multi-GB failure

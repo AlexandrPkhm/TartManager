@@ -12,6 +12,7 @@ import Foundation
 
     @Test func runVMPassesSuspendableFlagTartHomeAndName() throws {
         let dir = isolatedLogDirectory()
+        let storagePath = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
         let invocationFile = dir.appendingPathComponent("invocation.txt").path
         let stub = StubBinary.make(script: """
         #!/bin/sh
@@ -21,7 +22,7 @@ import Foundation
         """)
         let client = TartClient(
             binaryPath: stub,
-            environment: TartCommandEnvironment(storagePath: "/tmp/run-home").environment)
+            environment: TartCommandEnvironment(storagePath: storagePath).environment)
         let handle = try client.runVM(
             name: "vm-a", earlyFailureWindow: 0.3, logDirectory: dir)
         defer {
@@ -37,8 +38,69 @@ import Foundation
         }
         let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
             .split(separator: "\n").map(String.init)
-        #expect(lines.contains("/tmp/run-home"))
+        #expect(lines.contains(storagePath))
         #expect(lines.contains("run --suspendable vm-a"))
+    }
+
+    /// The Linux run refusal ("You can only suspend macOS VMs", exit 64):
+    /// non-macOS guests launch without the flag tart rejects.
+    @Test func runVMOmitsSuspendableFlagForLinuxGuests() throws {
+        let dir = isolatedLogDirectory()
+        let storagePath = VMStorageFixture.make(storageWithVM: "vm-a", os: "linux")
+        let invocationFile = dir.appendingPathComponent("invocation.txt").path
+        let stub = StubBinary.make(script: """
+        #!/bin/sh
+        echo "$@" >> "\(invocationFile)"
+        sleep 30
+        """)
+        let client = TartClient(
+            binaryPath: stub,
+            environment: TartCommandEnvironment(storagePath: storagePath).environment)
+        let handle = try client.runVM(
+            name: "vm-a", earlyFailureWindow: 0.3, logDirectory: dir)
+        defer {
+            handle.process.terminate()
+            handle.process.waitUntilExit()
+        }
+        let deadline = Date().addingTimeInterval(5)
+        while !FileManager.default.fileExists(atPath: invocationFile),
+              Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
+            .split(separator: "\n").map(String.init)
+        #expect(lines.contains("run vm-a"))
+        #expect(!lines.contains("run --suspendable vm-a"))
+    }
+
+    /// An unreadable config is not known to be macOS: the conservative
+    /// default must never reintroduce tart's Linux refusal.
+    @Test func runVMWithoutReadableConfigOmitsSuspendableFlag() throws {
+        let dir = isolatedLogDirectory()
+        let storagePath = VMStorageFixture.make(storageWithVM: "vm-a", os: nil)
+        let invocationFile = dir.appendingPathComponent("invocation.txt").path
+        let stub = StubBinary.make(script: """
+        #!/bin/sh
+        echo "$@" >> "\(invocationFile)"
+        sleep 30
+        """)
+        let client = TartClient(
+            binaryPath: stub,
+            environment: TartCommandEnvironment(storagePath: storagePath).environment)
+        let handle = try client.runVM(
+            name: "vm-a", earlyFailureWindow: 0.3, logDirectory: dir)
+        defer {
+            handle.process.terminate()
+            handle.process.waitUntilExit()
+        }
+        let deadline = Date().addingTimeInterval(5)
+        while !FileManager.default.fileExists(atPath: invocationFile),
+              Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
+            .split(separator: "\n").map(String.init)
+        #expect(lines.contains("run vm-a"))
     }
 
     @Test func quickExitMapsToTartClientError() {
@@ -80,6 +142,10 @@ import Foundation
         let storagePath = "/private/tmp/TartManager storage \(UUID().uuidString)/storage with space"
         let vmDirPath = storagePath + "/vms/vm-a"
         try FileManager.default.createDirectory(atPath: vmDirPath, withIntermediateDirectories: true)
+        // A macOS guest: the run must keep the suspendable flag alongside the
+        // pinned working directory.
+        try #"{"os":"darwin"}"#.write(toFile: vmDirPath + "/config.json",
+                                      atomically: true, encoding: .utf8)
         let invocationFile = dir.appendingPathComponent("invocation.txt").path
         let stub = StubBinary.make(script: """
         #!/bin/sh

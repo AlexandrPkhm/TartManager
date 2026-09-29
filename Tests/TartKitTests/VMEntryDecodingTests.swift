@@ -43,6 +43,8 @@ import Foundation
         #expect(local.diskUsage == 0)
         #expect(local.accessed != nil)
         #expect(local.isLocal)
+        // `tart list` has no OS field: enrichment happens after decoding.
+        #expect(local.guestOS == nil)
 
         let image = entries[1]
         #expect(image.name == "ghcr.io/cirruslabs/macos-tahoe-base:latest")

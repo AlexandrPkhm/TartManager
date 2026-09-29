@@ -90,4 +90,24 @@ import Foundation
             Issue.record("unexpected error type: \(error)")
         }
     }
+
+    /// `tart list` omits the guest OS; the client attaches it for local
+    /// entries from their on-disk config, so every downstream gate keys on
+    /// one value. OCI rows never get one.
+    @Test func listAttachesGuestOSFromTheVMDirectory() throws {
+        let storage = VMStorageFixture.make(storageWithVM: "vm", os: "darwin")
+        let stub = StubBinary.make(script: """
+        #!/bin/sh
+        echo '[{"Name":"vm","Source":"local","State":"stopped"},{"Name":"ghcr.io/cirruslabs/ubuntu:latest","Source":"oci","State":"stopped"}]'
+        """)
+        let client = TartClient(
+            binaryPath: stub,
+            environment: TartCommandEnvironment(storagePath: storage).environment)
+        let entries = try client.list()
+        #expect(entries.map(\.name) == ["vm", "ghcr.io/cirruslabs/ubuntu:latest"])
+        #expect(entries[0].guestOS == "darwin")
+        #expect(entries[0].supportsSuspend)
+        #expect(entries[1].guestOS == nil)
+        #expect(!entries[1].supportsSuspend)
+    }
 }

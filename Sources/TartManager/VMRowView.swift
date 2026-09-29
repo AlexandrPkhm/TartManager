@@ -45,6 +45,7 @@ struct VMRowView: View {
         .contextMenu {
             if entry.isLocal {
                 if entry.running
+                    && entry.supportsSuspend
                     && !suspendCoordinator.suspending.contains(entry.name)
                     && !stopCoordinator.stopping.contains(entry.name) {
                     Button("Suspend") {

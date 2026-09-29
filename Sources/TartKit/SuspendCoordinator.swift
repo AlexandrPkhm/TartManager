@@ -27,7 +27,8 @@ public final class SuspendCoordinator: ObservableObject {
         case unknown(name: String)
         /// A suspend is already in flight for this VM (double-click guard).
         case alreadySuspending(name: String)
-        /// Pre-check skip: not a running local VM.
+        /// Pre-check skip: not a running local macOS VM (tart only suspends
+        /// macOS guests).
         case notSuspendable(name: String)
     }
 
@@ -45,7 +46,14 @@ public final class SuspendCoordinator: ObservableObject {
     public func suspend(vm: VMEntry,
                         using client: TartClient,
                         inventory: InventoryService) async -> Outcome {
-        guard vm.isLocal, vm.running else { return .notSuspendable(name: vm.name) }
+        // `supportsSuspend` re-verifies the row-level gate at the model
+        // boundary: tart refuses `suspend` for Linux guests outright, so a
+        // stale/racing row must be refused here, never by the CLI.
+        guard vm.isLocal, vm.running, vm.supportsSuspend else {
+            Logger.suspend.info(
+                "suspend skipped for '\(vm.name, privacy: .public)': not a running macOS guest")
+            return .notSuspendable(name: vm.name)
+        }
         let name = vm.name
         guard !suspending.contains(name) else { return .alreadySuspending(name: name) }
         suspending.insert(name)

@@ -3,10 +3,10 @@ import Foundation
 @testable import TartKit
 
 @Suite struct SuspendCoordinatorTests {
-    func entry(_ name: String, running: Bool = true) -> VMEntry {
+    func entry(_ name: String, running: Bool = true, guestOS: String? = "darwin") -> VMEntry {
         VMEntry(name: name, source: "local", running: running,
                 state: running ? "running" : "stopped",
-                diskSize: 0, diskUsage: 0, accessed: nil)
+                diskSize: 0, diskUsage: 0, accessed: nil, guestOS: guestOS)
     }
 
     func tempDir() -> URL {
@@ -137,5 +137,22 @@ import Foundation
         #expect(await coordinator.suspend(vm: oci,
                                            using: TartClient(binaryPath: stub),
                                            inventory: service) == .notSuspendable(name: "img:1"))
+    }
+
+    /// Linux guests cannot be suspended by tart at all: the guard refuses
+    /// before any CLI call, so no command can fail with the OS refusal.
+    @MainActor
+    @Test func skipsLinuxGuestsEvenWhenRunning() async {
+        let dir = tempDir()
+        let invocationFile = dir.appendingPathComponent("invocation.txt").path
+        let stub = StubBinary.make(script: "#!/bin/sh\necho \"$@\" >> \"\(invocationFile)\"\n")
+        let coordinator = SuspendCoordinator()
+        let linux = entry("vm-a", guestOS: "linux")
+        let outcome = await coordinator.suspend(
+            vm: linux,
+            using: TartClient(binaryPath: stub),
+            inventory: inventory(fetch: { [linux] }))
+        #expect(outcome == .notSuspendable(name: "vm-a"))
+        #expect(!FileManager.default.fileExists(atPath: invocationFile))
     }
 }

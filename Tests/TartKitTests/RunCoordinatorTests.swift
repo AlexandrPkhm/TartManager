@@ -16,8 +16,13 @@ import Foundation
                 diskSize: 0, diskUsage: 0, accessed: nil)
     }
 
+    /// A client over a temp storage holding a macOS `vm-a`, so launch tests
+    /// keep the suspendable argv. Tests that never assert argv (e.g. the
+    /// ghost failure) are unaffected by the fixture.
     func client(script: String) -> TartClient {
-        TartClient(binaryPath: StubBinary.make(script: script))
+        let storage = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
+        return TartClient(binaryPath: StubBinary.make(script: script),
+                          environment: TartCommandEnvironment(storagePath: storage).environment)
     }
 
     @MainActor

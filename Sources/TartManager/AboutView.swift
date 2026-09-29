@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// About sheet carrying the run-configuration note (suspend-capable runs
-/// disable guest audio), the two-tier stop semantics, and the
-/// suspend/resume behavior.
+/// disable guest audio; macOS guests only), the two-tier stop semantics, and
+/// the suspend/resume behavior.
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -22,10 +22,11 @@ struct AboutView: View {
             Divider()
             Text("Running VMs").font(.headline)
             Text("""
-            VMs you start from Tart Manager always run in the \
+            macOS VMs you start from Tart Manager run in the \
             suspend-capable configuration so their sessions can be \
             suspended and resumed later. As a tradeoff, audio inside \
-            the guest is disabled while it runs.
+            the macOS guest is disabled while it runs. Linux guests \
+            run normally — tart only supports suspend for macOS.
             """)
             Text("Stopping VMs").font(.headline)
             Text("""
@@ -37,14 +38,16 @@ struct AboutView: View {
             """)
             Text("Suspending VMs").font(.headline)
             Text("""
-            Suspend parks a running VM's session: the VM window closes \
-            and the guest stops using memory until you click Resume, \
-            which returns it to exactly where you left off — no cold \
-            boot. Only VMs started with the suspend-capable \
-            configuration can be suspended; Tart Manager always uses \
-            it, so a VM started elsewhere without it shows tart's \
-            refusal with an explanation instead. The suspend-capable \
-            configuration disables guest audio — the accepted tradeoff.
+            Suspend parks a running macOS VM's session: the VM window \
+            closes and the guest stops using memory until you click \
+            Resume, which returns it to exactly where you left off — no \
+            cold boot. Only macOS VMs started with the suspend-capable \
+            configuration can be suspended; Tart Manager always uses it \
+            for macOS guests, so a macOS VM started elsewhere without it \
+            shows tart's refusal with an explanation instead. Linux \
+            guests cannot be suspended at all, so Suspend is not offered \
+            for them. The suspend-capable configuration disables guest \
+            audio — the accepted tradeoff.
             """)
             // Replacing a VM's Disk: the destructive disk-replacement flow
             // and its data-loss semantics, documented in-app.
