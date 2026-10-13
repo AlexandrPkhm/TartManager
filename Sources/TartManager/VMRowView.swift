@@ -45,13 +45,14 @@ struct VMRowView: View {
         .contextMenu {
             if entry.isLocal {
                 if entry.running
-                    && entry.supportsSuspend
                     && !suspendCoordinator.suspending.contains(entry.name)
                     && !stopCoordinator.stopping.contains(entry.name) {
-                    Button("Suspend") {
-                        Task { await model.suspend(vm: entry) }
+                    if entry.canSuspend {
+                        Button("Suspend") {
+                            Task { await model.suspend(vm: entry) }
+                        }
+                        Divider()
                     }
-                    Divider()
                     Button("Stop") {
                         Task { await model.stop(vm: entry) }
                     }

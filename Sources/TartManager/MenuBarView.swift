@@ -8,17 +8,19 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        Button("Open Tart Manager") {
+            revealMainWindow()
+        }
+        Divider()
         vmMenuContent
         Divider()
-        Button("Refresh") {
+        Button("Refresh List") {
             Task { await model.inventoryService.refresh() }
         }
         .disabled(!canControlVMs)
+        Divider()
         SettingsLink {
             Text("Settings…")
-        }
-        Button("Open Tart Manager") {
-            revealMainWindow()
         }
         Divider()
         Button("Quit Tart Manager") {
@@ -46,14 +48,15 @@ struct MenuBarView: View {
 
     private func vmMenu(for vm: VMEntry) -> some View {
         Menu(vm.name) {
-            Text(vm.state.capitalized)
+            Text("Status: \(vm.state.capitalized)")
             Divider()
-            if let action = MenuBarVMAction(entry: vm) {
+            ForEach(MenuBarVMAction.actions(for: vm), id: \.self) { action in
                 Button(action.title) {
                     revealMainWindow(selecting: vm)
                     Task { await perform(action, for: vm) }
                 }
             }
+            Divider()
             Button("Show in Tart Manager") {
                 revealMainWindow(selecting: vm)
             }
@@ -70,6 +73,8 @@ struct MenuBarView: View {
             await model.requestRun(vm: vm)
         case .stop:
             await model.stop(vm: vm)
+        case .suspend:
+            await model.suspend(vm: vm)
         }
     }
 

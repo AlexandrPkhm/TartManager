@@ -16,4 +16,20 @@ import Testing
         #expect(MenuBarVMAction(entry: vm(source: "ghcr.io/cirruslabs/macos", running: false,
                                            state: "stopped")) == nil)
     }
+
+    @Test func offersSuspendAfterStopOnlyForConfirmedSuspendableSessions() {
+        let suspendable = VMEntry(
+            name: "macos", source: "local", running: true, state: "running",
+            diskSize: 64, diskUsage: 16, accessed: nil,
+            guestOS: "darwin", suspendableSession: true
+        )
+        let unsuspendable = VMEntry(
+            name: "linux", source: "local", running: true, state: "running",
+            diskSize: 64, diskUsage: 16, accessed: nil,
+            guestOS: "linux", suspendableSession: false
+        )
+
+        #expect(MenuBarVMAction.actions(for: suspendable) == [.stop, .suspend])
+        #expect(MenuBarVMAction.actions(for: unsuspendable) == [.stop])
+    }
 }

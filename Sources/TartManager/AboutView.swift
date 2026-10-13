@@ -41,12 +41,11 @@ struct AboutView: View {
             Suspend parks a running macOS VM's session: the VM window \
             closes and the guest stops using memory until you click \
             Resume, which returns it to exactly where you left off — no \
-            cold boot. Only macOS VMs started with the suspend-capable \
-            configuration can be suspended; Tart Manager always uses it \
-            for macOS guests, so a macOS VM started elsewhere without it \
-            shows tart's refusal with an explanation instead. Linux \
-            guests cannot be suspended at all, so Suspend is not offered \
-            for them. The suspend-capable configuration disables guest \
+            cold boot. Suspend appears only when Tart Manager confirms \
+            that the running macOS VM was started with --suspendable. \
+            Tart Manager uses this configuration for macOS guests. The \
+            button is hidden for Linux guests and sessions whose suspend \
+            configuration cannot be confirmed. This configuration disables guest \
             audio — the accepted tradeoff.
             """)
             // Replacing a VM's Disk: the destructive disk-replacement flow

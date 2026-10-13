@@ -3,6 +3,24 @@ import Foundation
 @testable import TartKit
 
 @Suite struct VMEntrySuspensionTests {
+    @Test func suspendRequiresConfirmedRunningLocalMacOSSession() {
+        for (source, running, state, os, session, expected) in [
+            ("local", true, "running", "darwin", true as Bool?, true),
+            ("local", true, "running", "darwin", false, false),
+            ("local", true, "running", "darwin", nil, false),
+            ("local", true, "running", "linux", true, false),
+            ("local", false, "stopped", "darwin", true, false),
+            ("local", true, "suspended", "darwin", true, false),
+            ("oci", true, "running", "darwin", true, false)
+        ] {
+            let vm = VMEntry(name: "vm", source: source, running: running, state: state,
+                             diskSize: 0, diskUsage: 0, accessed: nil, guestOS: os,
+                             suspendableSession: session)
+            #expect(vm.canSuspend == expected)
+            #expect(!vm.withGuestOS(nil).canSuspend)
+        }
+    }
+
     func entry(_ state: String, running: Bool = true) -> VMEntry {
         VMEntry(name: "vm-a", source: "local", running: running, state: state,
                 diskSize: 0, diskUsage: 0, accessed: nil)

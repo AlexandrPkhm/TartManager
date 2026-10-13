@@ -29,17 +29,22 @@ public struct TartClient: Sendable {
     /// `timeout` used for local quick commands — still bounded, so an
     /// unreachable registry degrades to `.timedOut`.
     public let authTimeout: TimeInterval
+    private let suspendableSessionReader: @Sendable (String) -> Bool?
 
+    /// The optional session reader accepts a VM directory and returns its
+    /// current run flag, or nil when unknown. Defaults to native process inspection.
     public init(binaryPath: String,
                 runner: ProcessRunner = ProcessRunner(),
                 environment: [String: String] = [:],
                 timeout: TimeInterval = ProcessRunner.defaultTimeout,
-                authTimeout: TimeInterval = 30) {
+                authTimeout: TimeInterval = 30,
+                suspendableSessionReader: (@Sendable (String) -> Bool?)? = nil) {
         self.binaryPath = binaryPath
         self.runner = runner
         self.environment = environment
         self.timeout = timeout
         self.authTimeout = authTimeout
+        self.suspendableSessionReader = suspendableSessionReader ?? { VMRunSession.read(atVMDirectory: $0) }
     }
 
     /// Subprocess deadline for stop: generous enough that tart's own 30 s
@@ -79,8 +84,21 @@ public struct TartClient: Sendable {
             guard entry.isLocal,
                   let directory = Self.vmStoragePath(environment: environment, name: entry.name)
             else { return entry }
-            return entry.withGuestOS(VMGuestOS.read(atVMDirectory: directory))
+            let vm = entry.withGuestOS(VMGuestOS.read(atVMDirectory: directory))
+            guard vm.running, vm.supportsSuspend else { return vm }
+            let session = suspendableSessionReader(directory)
+            if session == nil {
+                Logger.suspend.debug("Suspend hidden for '\(vm.name, privacy: .public)': run flag unknown")
+            }
+            return vm.withSuspendableSession(session)
         }
+    }
+
+    /// Rechecks the live process before suspend rather than trusting a stale row.
+    func canSuspend(name: String) -> Bool {
+        guard let directory = Self.vmStoragePath(environment: environment, name: name),
+              VMGuestOS.supportsSuspend(VMGuestOS.read(atVMDirectory: directory)) else { return false }
+        return suspendableSessionReader(directory) == true
     }
 
     private static func mapping(_ error: ProcessRunnerError, command: String) -> TartClientError {

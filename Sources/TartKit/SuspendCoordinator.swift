@@ -27,8 +27,7 @@ public final class SuspendCoordinator: ObservableObject {
         case unknown(name: String)
         /// A suspend is already in flight for this VM (double-click guard).
         case alreadySuspending(name: String)
-        /// Pre-check skip: not a running local macOS VM (tart only suspends
-        /// macOS guests).
+        /// Pre-check skip: not a confirmed running suspendable macOS session.
         case notSuspendable(name: String)
     }
 
@@ -46,18 +45,24 @@ public final class SuspendCoordinator: ObservableObject {
     public func suspend(vm: VMEntry,
                         using client: TartClient,
                         inventory: InventoryService) async -> Outcome {
-        // `supportsSuspend` re-verifies the row-level gate at the model
-        // boundary: tart refuses `suspend` for Linux guests outright, so a
-        // stale/racing row must be refused here, never by the CLI.
-        guard vm.isLocal, vm.running, vm.supportsSuspend else {
+        guard vm.canSuspend else {
             Logger.suspend.info(
-                "suspend skipped for '\(vm.name, privacy: .public)': not a running macOS guest")
+                "suspend skipped for '\(vm.name, privacy: .public)': not a confirmed suspendable macOS session")
             return .notSuspendable(name: vm.name)
         }
         let name = vm.name
         guard !suspending.contains(name) else { return .alreadySuspending(name: name) }
         suspending.insert(name)
         defer { suspending.remove(name) }
+
+        // The VM may have restarted without the flag since the last poll.
+        // Reserve before awaiting so this check cannot open a double-click race.
+        guard await Task.detached(priority: .userInitiated, operation: {
+            client.canSuspend(name: name)
+        }).value else {
+            Logger.suspend.info("suspend skipped for '\(name, privacy: .public)': current run is not confirmed suspendable")
+            return .notSuspendable(name: name)
+        }
 
         Logger.suspend.info("suspend started for '\(name, privacy: .public)'")
 

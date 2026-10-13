@@ -10,6 +10,8 @@ struct VMDetailView: View {
     @State private var selectedTab: VMDetailTab = .overview
     @State private var editingResources = false
     @State private var requestingAction = false
+    @State private var requestingSuspend = false
+    @State private var hoveringSuspend = false
 
     var body: some View {
         ScrollView {
@@ -72,6 +74,29 @@ struct VMDetailView: View {
                 }.font(.system(size: 12))
             }
             Spacer(minLength: 12)
+            if details.entry.canSuspend || isSuspending {
+                Button {
+                    let vm = details.entry
+                    requestingSuspend = true
+                    Task {
+                        await model.suspend(vm: vm)
+                        requestingSuspend = false
+                    }
+                } label: {
+                    HStack(spacing: 7) {
+                        if isSuspending { ProgressView().controlSize(.mini) }
+                        else { Image(systemName: "pause.fill") }
+                        Text(isSuspending ? "Suspending…" : "Suspend")
+                    }
+                }
+                .buttonStyle(WorkspaceButtonStyle(flat: true))
+                .background(hoveringSuspend && !isBusy ? WorkspaceStyle.line.opacity(0.5) : .clear,
+                            in: RoundedRectangle(cornerRadius: 7))
+                .onHover { hoveringSuspend = $0 }
+                .disabled(isBusy)
+                .help("Suspend this VM and keep its session for later")
+                .accessibilityIdentifier("suspendVM")
+            }
             Button {
                 requestingAction = true
                 Task {
@@ -81,7 +106,9 @@ struct VMDetailView: View {
                 }
             } label: {
                 HStack(spacing: 7) {
-                    if isBusy { ProgressView().controlSize(.mini) }
+                    if requestingAction || stopCoordinator.stopping.contains(details.entry.name) {
+                        ProgressView().controlSize(.mini)
+                    }
                     else { Image(systemName: details.entry.running ? "stop.fill" : "play.fill") }
                     Text(actionTitle)
                 }
@@ -91,11 +118,13 @@ struct VMDetailView: View {
 
     private var isBusy: Bool {
         requestingAction || stopCoordinator.stopping.contains(details.entry.name)
-            || suspendCoordinator.suspending.contains(details.entry.name)
+            || isSuspending
+    }
+    private var isSuspending: Bool {
+        requestingSuspend || suspendCoordinator.suspending.contains(details.entry.name)
     }
     private var actionTitle: String {
         if stopCoordinator.stopping.contains(details.entry.name) { return "Stopping…" }
-        if suspendCoordinator.suspending.contains(details.entry.name) { return "Suspending…" }
         return details.entry.running ? "Stop" : details.entry.primaryActionLabel(
             distinguishesSuspended: SuspendedStateReporting.distinguishesSuspended)
     }

@@ -21,14 +21,21 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
     /// the VM's on-disk `config.json` — `tart list` itself omits it. nil for
     /// OCI rows and when the config could not be read.
     public let guestOS: String?
+    /// Whether the current process was launched with `--suspendable`.
+    /// nil means it could not be confirmed; guest OS alone is insufficient.
+    public let suspendableSession: Bool?
 
     public var id: String { name }
     public var isLocal: Bool { source == "local" }
 
-    /// Whether tart can suspend this VM. macOS guests only: tart 2.32 refuses
-    /// both `run --suspendable` and `suspend` for every other guest. The one
-    /// predicate shared by the run configuration and the Suspend affordances.
+    /// Guest-level support, used to choose the run configuration. The current
+    /// session must also be confirmed before offering Suspend; see `canSuspend`.
     public var supportsSuspend: Bool { VMGuestOS.supportsSuspend(guestOS) }
+
+    /// Shared UI and model gate. Unknown sessions never offer Suspend.
+    public var canSuspend: Bool {
+        isLocal && running && !isSuspended && supportsSuspend && suspendableSession == true
+    }
 
     /// Whether the app may run `tart set`-family edits on this VM.
     /// The single source of truth for the stopped-only gate — the view and
@@ -46,7 +53,7 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
 
     public init(name: String, source: String, running: Bool, state: String,
                 diskSize: Double, diskUsage: Double, accessed: Date?,
-                guestOS: String? = nil) {
+                guestOS: String? = nil, suspendableSession: Bool? = nil) {
         self.name = name
         self.source = source
         self.running = running
@@ -55,6 +62,7 @@ public struct VMEntry: Equatable, Hashable, Identifiable, Sendable {
         self.diskUsage = diskUsage
         self.accessed = accessed
         self.guestOS = guestOS
+        self.suspendableSession = suspendableSession
     }
 }
 
@@ -89,6 +97,7 @@ extension VMEntry: Decodable {
         // `tart list` omits the guest OS; `TartClient.list()` attaches it
         // from the VM's on-disk config after decoding.
         guestOS = nil
+        suspendableSession = nil
     }
 }
 
@@ -124,7 +133,14 @@ extension VMEntry {
     public func withGuestOS(_ os: String?) -> VMEntry {
         VMEntry(name: name, source: source, running: running, state: state,
                 diskSize: diskSize, diskUsage: diskUsage, accessed: accessed,
-                guestOS: os)
+                guestOS: os, suspendableSession: suspendableSession)
+    }
+
+    /// Attaches a fresh process observation without changing lifecycle or OS.
+    func withSuspendableSession(_ value: Bool?) -> VMEntry {
+        VMEntry(name: name, source: source, running: running, state: state,
+                diskSize: diskSize, diskUsage: diskUsage, accessed: accessed,
+                guestOS: guestOS, suspendableSession: value)
     }
 
     /// True when tart's list reports this VM as suspended (per Task 0).

@@ -3,6 +3,20 @@ import Foundation
 @testable import TartKit
 
 @Suite struct TartClientTests {
+    @Test func listConfirmsSessionInConfiguredStorage() throws {
+        let root = VMStorageFixture.make(storageWithVM: "vm", os: "darwin")
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let stub = StubBinary.make(script: "#!/bin/sh\necho '[{\"Name\":\"vm\",\"Source\":\"local\",\"Running\":true,\"State\":\"running\"}]'\n")
+        for session in [true as Bool?, false, nil] {
+            let client = TartClient(binaryPath: stub, environment: ["TART_HOME": root],
+                                    suspendableSessionReader: { directory in
+                #expect(directory == root + "/vms/vm")
+                return session
+            })
+            #expect(try client.list()[0].canSuspend == (session == true))
+        }
+    }
+
     @Test func listParsesEntriesAndInjectsTartHome() throws {
         let captureDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("tartmanager-tests-\(UUID().uuidString)")

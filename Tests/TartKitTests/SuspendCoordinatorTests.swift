@@ -6,7 +6,8 @@ import Foundation
     func entry(_ name: String, running: Bool = true, guestOS: String? = "darwin") -> VMEntry {
         VMEntry(name: name, source: "local", running: running,
                 state: running ? "running" : "stopped",
-                diskSize: 0, diskUsage: 0, accessed: nil, guestOS: guestOS)
+                diskSize: 0, diskUsage: 0, accessed: nil, guestOS: guestOS,
+                suspendableSession: true)
     }
 
     func tempDir() -> URL {
@@ -14,6 +15,29 @@ import Foundation
             .appendingPathComponent("tartmanager-tests-\(UUID().uuidString)")
         try! FileManager.default.createDirectory(atPath: dir.path, withIntermediateDirectories: true)
         return dir
+    }
+
+    func client(binaryPath: String, session: Bool? = true) -> TartClient {
+        let root = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
+        return TartClient(binaryPath: binaryPath, environment: ["TART_HOME": root],
+                          suspendableSessionReader: { _ in session })
+    }
+
+    @MainActor
+    @Test func refusesUnconfirmedAndChangedSessionsBeforeInvokingCLI() async throws {
+        let dir = tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let capture = dir.appendingPathComponent("invoked").path
+        let stub = StubBinary.make(script: "#!/bin/sh\ntouch '\(capture)'\n")
+        for session in [false as Bool?, nil] {
+            let coordinator = SuspendCoordinator()
+            let outcome = await coordinator.suspend(
+                vm: entry("vm-a"), using: client(binaryPath: stub, session: session),
+                inventory: inventory(fetch: { [] }))
+            #expect(outcome == .notSuspendable(name: "vm-a"))
+            #expect(coordinator.suspending.isEmpty)
+            #expect(!FileManager.default.fileExists(atPath: capture))
+        }
     }
 
     @MainActor
@@ -32,7 +56,7 @@ import Foundation
         let coordinator = SuspendCoordinator()
         let outcome = await coordinator.suspend(
             vm: entry("vm-a"),
-            using: TartClient(binaryPath: stub),
+            using: client(binaryPath: stub),
             inventory: inventory(fetch: { [] }))
         #expect(outcome == .suspended)
         #expect(coordinator.suspending.isEmpty)
@@ -55,7 +79,7 @@ import Foundation
         echo "$@" >> "\(invocationFile)"
         while [ ! -f "\(releaseFile)" ]; do sleep 0.05; done
         """)
-        let client = TartClient(binaryPath: stub)
+        let client = client(binaryPath: stub)
         let service = inventory(fetch: { [] })
         let coordinator = SuspendCoordinator()
         async let first = coordinator.suspend(vm: entry("vm-a"), using: client, inventory: service)
@@ -84,7 +108,7 @@ import Foundation
         let coordinator = SuspendCoordinator()
         let outcome = await coordinator.suspend(
             vm: entry("vm-a"),
-            using: TartClient(binaryPath: stub),
+            using: client(binaryPath: stub),
             inventory: inventory(fetch: { [entry("vm-a")] }))
         guard case .stillRunning(_, let error) = outcome else {
             Issue.record("expected .stillRunning, got \(outcome)")
@@ -103,7 +127,7 @@ import Foundation
         let coordinator = SuspendCoordinator()
         let outcome = await coordinator.suspend(
             vm: entry("vm-a"),
-            using: TartClient(binaryPath: stub),
+            using: client(binaryPath: stub),
             inventory: inventory(fetch: { [entry("vm-a", running: false)] }))
         #expect(outcome == .reconciled(name: "vm-a"))
     }
@@ -116,7 +140,7 @@ import Foundation
         let coordinator = SuspendCoordinator()
         let outcome = await coordinator.suspend(
             vm: entry("vm-a"),
-            using: TartClient(binaryPath: stub),
+            using: client(binaryPath: stub),
             inventory: inventory(fetch: { throw InventoryFetchError.unavailable }))
         guard case .unknown = outcome else {
             Issue.record("expected .unknown (suppressed), got \(outcome)")
@@ -130,12 +154,12 @@ import Foundation
         let service = inventory(fetch: { [] })
         let coordinator = SuspendCoordinator()
         #expect(await coordinator.suspend(vm: entry("vm-a", running: false),
-                                           using: TartClient(binaryPath: stub),
+                                           using: client(binaryPath: stub),
                                            inventory: service) == .notSuspendable(name: "vm-a"))
         let oci = VMEntry(name: "img:1", source: "oci", running: false, state: "stopped",
                           diskSize: 0, diskUsage: 0, accessed: nil)
         #expect(await coordinator.suspend(vm: oci,
-                                           using: TartClient(binaryPath: stub),
+                                           using: client(binaryPath: stub),
                                            inventory: service) == .notSuspendable(name: "img:1"))
     }
 
@@ -150,7 +174,7 @@ import Foundation
         let linux = entry("vm-a", guestOS: "linux")
         let outcome = await coordinator.suspend(
             vm: linux,
-            using: TartClient(binaryPath: stub),
+            using: client(binaryPath: stub),
             inventory: inventory(fetch: { [linux] }))
         #expect(outcome == .notSuspendable(name: "vm-a"))
         #expect(!FileManager.default.fileExists(atPath: invocationFile))
