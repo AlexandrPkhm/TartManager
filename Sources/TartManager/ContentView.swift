@@ -80,10 +80,12 @@ struct ContentView: View {
             }
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.checkAutomaticPruning()
             Task { await model.inventoryService.refresh() }
         }
         .task {
             model.checkPrerequisite()
+            model.startAutomaticPruning()
             showingOnboarding = model.requiresOnboarding
             model.inventoryService.startPolling()
         }
@@ -188,7 +190,6 @@ struct ContentView: View {
         } else {
             HStack(spacing: 0) {
                 VMListView(inventoryService: model.inventoryService,
-                           jobManager: model.jobManager,
                            selection: Binding(
                                get: { model.selectedVM },
                                set: { model.select($0) }),

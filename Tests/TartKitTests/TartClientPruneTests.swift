@@ -3,6 +3,17 @@ import Foundation
 @testable import TartKit
 
 @Suite struct TartClientPruneTests {
+    @Test func manualPruneUsesZeroDayCriterionAndInjectedHome() throws {
+        let stub = StubBinary.make(script: "#!/bin/sh\nprintf '%s\\n' \"$*\" \"$TART_HOME\"\n")
+        let client = TartClient(binaryPath: stub, environment: ["TART_HOME": "/tmp/manual-home"])
+        let output = LockedValue("")
+        let outcome = try client.prune(olderThanDays: nil) { chunk in
+            output.withValue { $0 += chunk }
+        }
+        #expect(outcome == .completed)
+        #expect(output.value == "prune --entries caches --older-than 0\n/tmp/manual-home\n")
+    }
+
     @Test func pruneSendsEntriesAndRetention() throws {
         let (stub, invocationFile) = StubBinary.makeRecordingStub()
         let client = TartClient(binaryPath: stub)

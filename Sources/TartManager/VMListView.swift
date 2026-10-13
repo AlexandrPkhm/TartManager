@@ -3,21 +3,16 @@ import TartKit
 
 struct VMListView: View {
     @ObservedObject var inventoryService: InventoryService
-    /// Observed directly so the Jobs section re-renders on every job
-    /// mutation regardless of inventory polls (finding 1).
-    @ObservedObject var jobManager: JobManager
     @Binding var selection: VMEntry?
     @Binding var page: WorkspacePage
     @EnvironmentObject var model: AppModel
     var onCreateVM: () -> Void
 
     init(inventoryService: InventoryService,
-         jobManager: JobManager,
          selection: Binding<VMEntry?>,
          page: Binding<WorkspacePage>,
          onCreateVM: @escaping () -> Void) {
         self.inventoryService = inventoryService
-        self.jobManager = jobManager
         self._selection = selection
         self._page = page
         self.onCreateVM = onCreateVM
@@ -48,13 +43,6 @@ struct VMListView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(page == .machines && selection?.id == entry.id ? .isSelected : [])
-                    }
-                    if !jobManager.jobs.isEmpty {
-                        sectionLabel("JOBS")
-                        ForEach(jobManager.jobs) { job in
-                            JobRowView(jobManager: jobManager, jobID: job.id)
-                                .padding(.horizontal, 10)
-                        }
                     }
                 }
                 .padding(.horizontal, 12).padding(.top, 17)

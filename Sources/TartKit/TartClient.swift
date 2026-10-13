@@ -756,6 +756,9 @@ extension TartClient {
     }
 
     /// Runs `tart prune --entries caches --older-than N` to completion.
+    /// Nil retention requests all-cache cleanup using `--older-than 0`:
+    /// tart requires a criterion even when every cached entry is eligible.
+    /// Explicit retention days must remain positive.
     ///
     /// Verified against the tart 2.32.0 sources: prune emits nothing on the
     /// success path (`Prune.swift`'s `delete()` prints no output), so
@@ -765,11 +768,11 @@ extension TartClient {
     /// cancellation wiring, and failure normalization with command "prune",
     /// the same high-level streaming shape as import/export.
     public func prune(
-        olderThanDays: Int,
+        olderThanDays: Int? = nil,
         onOutput: @escaping @Sendable (String) -> Void,
         registerCancel: (@escaping @Sendable () -> Void) -> Void = { _ in }
     ) throws -> PruneOutcome {
-        guard olderThanDays > 0 else {
+        if let olderThanDays, olderThanDays <= 0 {
             throw TartClientError.commandFailed(
                 command: "prune", exitCode: -1, stdout: "",
                 stderr: "Invalid retention age: \(olderThanDays) days (must be positive).")
@@ -780,7 +783,7 @@ extension TartClient {
             process = try StreamingProcess.launch(
                 binaryPath: binaryPath,
                 arguments: ["prune", "--entries", "caches",
-                            "--older-than", String(olderThanDays)],
+                            "--older-than", String(olderThanDays ?? 0)],
                 environment: environment,
                 onOutput: { chunk in
                     accumulator.append(chunk)

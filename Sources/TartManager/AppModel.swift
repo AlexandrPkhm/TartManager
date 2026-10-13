@@ -78,6 +78,9 @@ final class AppModel: ObservableObject {
             case .running:
                 break
             }
+            if job.phase != .running {
+                self?.checkAutomaticPruning()
+            }
         }
         // Every inventory change reconciles the run registry: entries whose
         // child exited or whose VM the poll reports stopped are evicted, so
@@ -121,7 +124,9 @@ final class AppModel: ObservableObject {
     /// The environment every storage-touching tart operation in this app must use.
     var commandEnvironment: TartCommandEnvironment? {
         guard let path = settings.storagePath else { return nil }
-        return TartCommandEnvironment(storagePath: path)
+        return TartCommandEnvironment(
+            storagePath: path,
+            automaticCachePruningEnabled: settings.cachePrunePolicy != .manual)
     }
 
     let inventoryService = InventoryService(fetch: { [] })
@@ -129,11 +134,11 @@ final class AppModel: ObservableObject {
     /// The client for the current state, or nil while unsatisfied.
     var makeTartClient: () -> TartClient? {
         {
-            guard let path = self.settings.storagePath,
+            guard let environment = self.commandEnvironment,
                   let prerequisite = self.prerequisite,
                   case .ok(_, let binaryPath) = prerequisite else { return nil }
             return TartClient(binaryPath: binaryPath,
-                              environment: TartCommandEnvironment(storagePath: path).environment)
+                              environment: environment.environment)
         }
     }
 
@@ -1175,6 +1180,7 @@ final class AppModel: ObservableObject {
             self.prerequisite = status
             self.isCheckingPrerequisite = false
             self.rewireInventoryFetch()
+            self.checkAutomaticPruning()
         }
     }
 
@@ -1192,6 +1198,7 @@ final class AppModel: ObservableObject {
             Logger.storage.warning(
                 "storage unavailable at \(path, privacy: .public): \(reason.rawValue, privacy: .public)")
         }
+        checkAutomaticPruning()
     }
 
     /// The single gate for storage changes: validate once, then commit.
@@ -1463,27 +1470,45 @@ final class AppModel: ObservableObject {
 
     // MARK: - Cache maintenance (prune)
 
-    /// Prunes cache entries older than the retention age (caches only —
-    /// VMs are never touched). The single-flight key is the namespaced
-    /// `prune:caches` (never a VM name). tart prune prints nothing on
-    /// success, so the completion summary is derived from the measured
-    /// free-space delta on the storage volume.
-    func startPrune(days: Int) {
-        guard let client = makeTartClient() else { return }
-        let home = client.environment["TART_HOME"]
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".tart").path
-        jobManager.start(kind: .prune) { context in
-            let freeBefore = DiskSpace.freeBytes(atPath: home)
-            context.report(PullProgress(fraction: nil, note: "pruning…"))
-            let outcome = try client.prune(
-                olderThanDays: days,
-                onOutput: { _ in },
-                registerCancel: { action in context.registerCancel(action) })
-            if outcome == .cancelled || context.isCancelled { return }
-            let freeAfter = DiskSpace.freeBytes(atPath: home)
-            context.reportSummary(
-                PruneSummary.compose(freeBefore: freeBefore, freeAfter: freeAfter))
-        }
+    private var automaticPruningStarted = false
+
+    private lazy var cachePruneCoordinator: CachePruneCoordinator = {
+        let coordinator = CachePruneCoordinator(
+            settings: settings,
+            jobManager: jobManager,
+            makeClient: { [weak self] in self?.makeTartClient() },
+            isStorageAvailable: { [weak self] in
+                guard let self else { return false }
+                return StorageLocationValidator.availability(at: self.settings.storagePath).isAvailable
+            })
+        coordinator.onRefusal = { [weak self] error in self?.present(error) }
+        return coordinator
+    }()
+
+    /// Called once from app startup; the coordinator lives beyond the main window.
+    func startAutomaticPruning() {
+        guard !automaticPruningStarted else { return }
+        automaticPruningStarted = true
+        cachePruneCoordinator.startAutomaticPruning()
+    }
+
+    /// Rechecks deferred maintenance after readiness changes or jobs finish.
+    func checkAutomaticPruning() {
+        guard automaticPruningStarted else { return }
+        cachePruneCoordinator.checkAutomaticPruning()
+    }
+
+    func setCachePrunePolicy(_ policy: CachePrunePolicy) {
+        // AppSettings writes UserDefaults with a nonmutating setter, so
+        // @Published settings alone does not invalidate the maintenance UI.
+        objectWillChange.send()
+        settings.cachePrunePolicy = policy
+        Logger.settings.info("cache cleanup policy set to \(policy.label, privacy: .public)")
+        checkAutomaticPruning()
+    }
+
+    /// Uses the policy captured by the confirmation dialog, including Manual.
+    func startPrune(policy: CachePrunePolicy) {
+        cachePruneCoordinator.startManualPruning(policy: policy)
     }
 }

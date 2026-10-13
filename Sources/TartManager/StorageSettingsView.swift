@@ -6,6 +6,7 @@ struct StorageSettingsView: View {
     @State private var validation: StorageValidation?
     @State private var snapshotValidation: StorageValidation?
     @State private var confirmingPrune = false
+    @State private var prunePolicyForConfirmation: CachePrunePolicy = .manual
     @State private var registryHost = "ghcr.io"
     @State private var registryUsername = ""
     @State private var registryPassword = ""
@@ -136,35 +137,51 @@ struct StorageSettingsView: View {
                 Button("Re-check") { model.checkPrerequisite() }
             }
             SettingsPanel(title: "Maintenance") {
-                LabeledContent("Prune caches older than") {
-                    Picker("Prune caches older than",
+                LabeledContent("Automatic cache cleanup") {
+                    Picker("Automatic cache cleanup",
                            selection: Binding(
-                               get: { model.settings.pruneRetentionDays },
-                               set: { model.settings.pruneRetentionDays = $0 })) {
-                        ForEach(AppSettings.pruneRetentionChoices, id: \.self) { days in
-                            Text("\(days) days").tag(days)
+                               get: { model.settings.cachePrunePolicy },
+                               set: { model.setCachePrunePolicy($0) })) {
+                        ForEach(CachePrunePolicy.allCases, id: \.self) { policy in
+                            Text(policy.label).tag(policy)
                         }
                     }
                     .labelsHidden().fixedSize()
                 }
+                if let days = model.settings.cachePrunePolicy.retentionDays {
+                    Text("Checks at launch and daily while Tart Manager is running, removing caches last accessed more than \(days) days ago.")
+                        .font(.footnote)
+                        .foregroundStyle(WorkspaceStyle.muted)
+                } else {
+                    Text("Keeps caches until you choose Prune Caches. Automatic cleanup is disabled.")
+                        .font(.footnote)
+                        .foregroundStyle(WorkspaceStyle.muted)
+                }
                 Button("Prune Caches…", role: .destructive) {
+                    prunePolicyForConfirmation = model.settings.cachePrunePolicy
                     confirmingPrune = true
                 }
             }
         }
         .confirmationDialog(
-            "Prune cache entries older than \(model.settings.pruneRetentionDays) days?",
+            pruneConfirmationTitle,
             isPresented: $confirmingPrune,
             titleVisibility: .visible) {
             Button("Prune Caches", role: .destructive) {
-                model.startPrune(days: model.settings.pruneRetentionDays)
+                model.startPrune(policy: prunePolicyForConfirmation)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Removes cached OCI image and IPSW data in the configured storage. "
-                 + "VMs and snapshots are not touched. The job appears in the Jobs list "
-                 + "with its summary when done.")
+                 + "You may need to download these images again. VMs and snapshots are not touched.")
         }
+    }
+
+    private var pruneConfirmationTitle: String {
+        if let days = prunePolicyForConfirmation.retentionDays {
+            return "Prune cache entries older than \(days) days?"
+        }
+        return "Prune all cached OCI image and IPSW data?"
     }
 
     private func choose() {

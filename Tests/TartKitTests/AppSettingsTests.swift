@@ -70,23 +70,41 @@ import Foundation
         #expect(settings.snapshotsFolder == nil)
     }
 
-    @Test func pruneRetentionDaysDefaultsAndRoundTrips() {
+    @Test func cachePrunePolicyDefaultsAndRoundTripsIncludingManual() {
         let defaults = makeIsolatedDefaults()
         let settings = AppSettings(defaults: defaults)
-        #expect(settings.pruneRetentionDays == 14) // default when unset
-        settings.pruneRetentionDays = 7
-        #expect(settings.pruneRetentionDays == 7)
-        #expect(AppSettings(defaults: defaults).pruneRetentionDays == 7) // persisted
-        settings.pruneRetentionDays = 30
-        #expect(settings.pruneRetentionDays == 30)
+        #expect(settings.cachePrunePolicy == .fourteenDays)
+        for policy in CachePrunePolicy.allCases {
+            settings.cachePrunePolicy = policy
+            #expect(AppSettings(defaults: defaults).cachePrunePolicy == policy)
+        }
     }
 
-    @Test func pruneRetentionDaysRejectsUnsupportedValues() {
-        let settings = AppSettings(defaults: makeIsolatedDefaults())
-        settings.pruneRetentionDays = 5
-        #expect(settings.pruneRetentionDays == 14) // invalid value ignored
-        settings.pruneRetentionDays = 0
-        #expect(settings.pruneRetentionDays == 14)
+    @Test func cachePrunePolicyPreservesLegacyChoicesAndDefaultsUnknown() {
+        let defaults = makeIsolatedDefaults()
+        for (raw, expected) in [(7, CachePrunePolicy.sevenDays), (14, .fourteenDays),
+                                (30, .thirtyDays), (0, .manual), (5, .fourteenDays),
+                                (-1, .fourteenDays)] {
+            defaults.set(raw, forKey: AppSettings.pruneRetentionDaysKey)
+            #expect(AppSettings(defaults: defaults).cachePrunePolicy == expected)
+        }
+    }
+
+    @Test func automaticPruneAttemptsPersistSeparatelyForEachStorage() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        let date = Date(timeIntervalSince1970: 123_456)
+        #expect(settings.lastAutomaticPruneAttempt(forStoragePath: "/tmp/a") == nil)
+        settings.recordAutomaticPruneAttempt(at: date, forStoragePath: "/tmp/a")
+        let restored = AppSettings(defaults: defaults)
+        #expect(restored.lastAutomaticPruneAttempt(forStoragePath: "/tmp/a") == date)
+        #expect(restored.lastAutomaticPruneAttempt(forStoragePath: "/tmp/b") == nil)
+    }
+
+    @Test func malformedCachePolicyDoesNotEnableManualMode() {
+        let defaults = makeIsolatedDefaults()
+        defaults.set("unsupported", forKey: AppSettings.pruneRetentionDaysKey)
+        #expect(AppSettings(defaults: defaults).cachePrunePolicy == .fourteenDays)
     }
 
     @Test func displayRefitPreferenceRoundTripsPerVM() {

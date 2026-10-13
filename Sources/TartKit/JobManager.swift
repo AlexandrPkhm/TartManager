@@ -194,8 +194,14 @@ public final class JobManager: ObservableObject {
     /// Starts a job for `kind` (its target is derived — finding 5). A
     /// duplicate target is refused with an observable `.duplicateTarget`
     /// result the caller surfaces (finding 4).
+    /// Background maintenance passes `.utility`; user actions retain the
+    /// default `.userInitiated` detached-task priority.
+    /// Normal jobs reserve their targets immediately but wait for active
+    /// cache cleanup before executing their bodies. Cancellation while
+    /// waiting finishes without spawning a subprocess.
     @discardableResult
     public func start(kind: JobInfo.Kind,
+                      priority: TaskPriority = .userInitiated,
                       body: @escaping @Sendable (JobContext) throws -> Void) -> StartResult {
         let target = kind.target
         guard !runningTargets.contains(target) else {
@@ -223,11 +229,28 @@ public final class JobManager: ObservableObject {
             })
         contexts[id] = context
 
-        Task.detached(priority: .userInitiated) { [weak self] in
+        Task.detached(priority: priority) { [weak self] in
             let outcome: JobInfo.Phase
             let failure: TartOperationError?
             do {
-                try body(context)
+                if kind != .prune {
+                    var reportedWaiting = false
+                    while !context.isCancelled {
+                        let pruning = await MainActor.run { [weak self] in
+                            self?.runningTargets.contains(JobInfo.Kind.prune.target) ?? false
+                        }
+                        guard pruning else { break }
+                        if !reportedWaiting {
+                            context.report(PullProgress(fraction: nil, note: "Waiting for cache cleanup…"))
+                            reportedWaiting = true
+                        }
+                        try await Task.sleep(for: .milliseconds(50))
+                    }
+                    if reportedWaiting, !context.isCancelled {
+                        context.report(PullProgress(fraction: nil, note: nil))
+                    }
+                }
+                if !context.isCancelled { try body(context) }
                 outcome = context.isCancelled ? .cancelled : .completed
                 failure = nil
             } catch let raw as TartClientError {

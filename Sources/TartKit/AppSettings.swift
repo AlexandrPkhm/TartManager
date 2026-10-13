@@ -70,22 +70,33 @@ public struct AppSettings {
     }
 
     static let pruneRetentionDaysKey = "pruneRetentionDays"
+    static let automaticPruneAttemptsKey = "automaticPruneAttempts"
 
-    /// The retention-age choices offered for prune.
-    public static let pruneRetentionChoices = [7, 14, 30]
-
-    /// Prune retention age in days; persisted, validated to the offered
-    /// choices, defaulting to 14 (both when unset and when an unknown value
-    /// is found — so the picker remembers its value across launches).
-    public var pruneRetentionDays: Int {
+    /// Persisted cache policy. Legacy 7/14/30 values retain their meaning;
+    /// an absent or unsupported value keeps the historical 14-day default.
+    public var cachePrunePolicy: CachePrunePolicy {
         get {
-            let raw = defaults.integer(forKey: Self.pruneRetentionDaysKey)
-            return Self.pruneRetentionChoices.contains(raw) ? raw : 14
+            guard let raw = defaults.object(forKey: Self.pruneRetentionDaysKey) as? NSNumber,
+                  raw.doubleValue == Double(raw.intValue) else {
+                return .fourteenDays
+            }
+            return CachePrunePolicy(rawValue: raw.intValue) ?? .fourteenDays
         }
-        nonmutating set {
-            guard Self.pruneRetentionChoices.contains(newValue) else { return }
-            defaults.set(newValue, forKey: Self.pruneRetentionDaysKey)
-        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.pruneRetentionDaysKey) }
+    }
+
+    /// Last automatic attempt for one storage location. Switching storage
+    /// does not delay cleanup of another location or reset the previous one.
+    public func lastAutomaticPruneAttempt(forStoragePath path: String) -> Date? {
+        (defaults.dictionary(forKey: Self.automaticPruneAttemptsKey)?[path] as? Date)
+    }
+
+    /// Records an accepted automatic job start, including failed attempts;
+    /// refusal and explicit manual cleanup must never call this method.
+    public func recordAutomaticPruneAttempt(at date: Date, forStoragePath path: String) {
+        var attempts = defaults.dictionary(forKey: Self.automaticPruneAttemptsKey) ?? [:]
+        attempts[path] = date
+        defaults.set(attempts, forKey: Self.automaticPruneAttemptsKey)
     }
 }
 

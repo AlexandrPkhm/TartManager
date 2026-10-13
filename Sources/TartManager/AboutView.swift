@@ -70,13 +70,12 @@ struct AboutView: View {
             """)
             Text("Pruning caches").font(.headline)
             Text("""
-            Settings → Maintenance prunes OCI/IPSW cache entries older \
-            than the chosen retention age (7, 14, or 30 days — remembered \
-            across launches). VMs and snapshots are never touched. tart \
-            prune prints nothing while it works, so the completed job row \
-            reports the reclaimed space measured from the storage volume's \
-            free space before and after pruning; concurrent disk activity \
-            can offset that measurement, so treat it as informational.
+            Settings → Storage → Maintenance offers Manual or 7, 14, \
+            or 30 days, remembered across launches. Day-based choices \
+            check at launch and daily while the app runs, pruning caches \
+            last accessed more than that many days ago. Manual disables \
+            automatic cleanup; Prune Caches still removes all caches \
+            after confirmation. VMs and snapshots are never touched.
             """)
             HStack {
                 Spacer()

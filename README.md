@@ -161,15 +161,19 @@ are logged:
 
 ## Pruning caches
 
-Settings → Maintenance offers **Prune Caches…** behind a confirmation
-dialog. It runs `tart prune --entries caches --older-than N` as a
-cancellable job against the configured storage — VMs and snapshots are
-never touched. The retention age (7, 14, or 30 days) is remembered across
-launches. tart prune prints nothing on the success path, so the completion
-summary ("Prune complete — freed …" / "Nothing to prune.") is derived from
-the storage volume's free space measured before and after the prune;
-concurrent disk activity can offset the measurement, so the summary is
-informational.
+Settings → Storage → Maintenance offers **Manual**, **7 days**, **14 days**,
+or **30 days**, remembered across launches. Day-based choices prune caches
+last accessed more than that many days ago, checking at launch and daily
+while Tart Manager is running. Automatic attempts are limited to once per
+24 hours per storage folder and defer while another job is active.
+Jobs started during cleanup wait for it to finish before accessing storage.
+
+**Manual** retains caches until explicit cleanup and disables tart's own
+low-space cache reclamation for commands launched by Tart Manager.
+**Prune Caches…** remains available behind a confirmation dialog: Manual
+cleans all cached OCI image and IPSW data; day-based choices clean only
+older entries. Cleanup targets the configured storage; VMs and snapshots
+are never touched.
 
 ## Registry accounts
 
