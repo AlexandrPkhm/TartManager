@@ -132,12 +132,24 @@ extension TartClient {
     /// works around, so the path never round-trips through `URL` before
     /// it reaches `Process.currentDirectoryURL`.
     public static func vmStoragePath(environment: [String: String], name: String) -> String? {
-        guard let tartHome = environment["TART_HOME"] else { return nil }
-        let path = tartHome + "/vms/" + name
+        guard let tartHome = environment["TART_HOME"],
+              Self.isVMStorageComponent(name) else { return nil }
+        let path = URL(fileURLWithPath: tartHome, isDirectory: true)
+            .appendingPathComponent("vms", isDirectory: true)
+            .appendingPathComponent(name, isDirectory: true)
+            .path
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
               isDirectory.boolValue else { return nil }
         return path
+    }
+
+    /// VM names reach filesystem paths in several operations. Accept only one
+    /// literal path component so callers cannot escape the configured storage.
+    private static func isVMStorageComponent(_ name: String) -> Bool {
+        !name.isEmpty && name != "." && name != ".."
+            && !name.contains("/")
+            && !name.unicodeScalars.contains { $0.value == 0 }
     }
 }
 

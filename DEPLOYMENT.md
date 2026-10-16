@@ -64,9 +64,9 @@ Scripts/package.sh --skip-build       # re-use the existing release binary
 ```
 
 The artifact lands in `dist/TartManager-<version>.dmg`. With `--sign`,
-adding `--notarize` notarizes and staples the finished DMG; credentials come
-from the `NOTARY_APPLE_ID`, `NOTARY_TEAM_ID`, and `NOTARY_PASSWORD`
-environment variables.
+adding `--notarize` notarizes and staples the finished DMG. Set
+`NOTARY_PROFILE` to the name of a notarytool Keychain profile; the profile
+keeps release credentials out of the packaging process's arguments.
 
 The stages below are the manual equivalent of the script, documented for
 reference and for custom toolchains. Every release must repeat all of them.
@@ -178,12 +178,19 @@ drag-install.
   `xattr -cr "/Applications/Tart Manager.app"`. For a warning-free install,
   use Developer ID signing plus notarization.
 - **Notarization.** With the Developer ID-signed app, notarize the finished
-  DMG (not the app) and staple the ticket:
+  DMG (not the app) and staple the ticket. Create a Keychain profile from an
+  App Store Connect API key, then use that profile for submission:
 
   ```sh
+  xcrun notarytool store-credentials "TartManagerNotary" \
+    --key <path-to-api-key.p8> --key-id <key-id> --issuer <issuer-id>
+  NOTARY_PROFILE=TartManagerNotary \
+    Scripts/package.sh --version 1.0.0 \
+    --sign "Developer ID Application: <your identity>" --notarize
+
+  # Manual equivalent:
   xcrun notarytool submit dist/TartManager-1.0.0.dmg \
-    --apple-id <apple-id> --team-id <team-id> \
-    --password <app-specific-password> --wait
+    --keychain-profile TartManagerNotary --wait
   xcrun stapler staple dist/TartManager-1.0.0.dmg
   ```
 

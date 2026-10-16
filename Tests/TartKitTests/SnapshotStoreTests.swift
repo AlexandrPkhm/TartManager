@@ -66,6 +66,37 @@ import Foundation
         #expect(try store.snapshots(forVM: "other").isEmpty)
     }
 
+    @Test func metadataWriteRejectsAnArchiveOutsideTheSnapshotsDirectory() throws {
+        let (store, directory) = makeStore()
+        let outsideArchive = directory + "-outside/archive.tvm"
+        try FileManager.default.createDirectory(
+            atPath: (outsideArchive as NSString).deletingLastPathComponent,
+            withIntermediateDirectories: true)
+        touch(outsideArchive)
+
+        #expect(throws: (any Error).self) {
+            try store.writeMetadata(archivePath: outsideArchive, vmName: "vm",
+                                    label: nil, createdAt: Date())
+        }
+        #expect(!FileManager.default.fileExists(atPath: outsideArchive + ".meta.json"))
+    }
+
+    @Test func metadataWriteRejectsASymlinkedSidecarWithoutWritingItsTarget() throws {
+        let (store, directory) = makeStore()
+        let archivePath = store.proposeArchivePath(vmName: "vm", label: nil)
+        touch(archivePath)
+        let target = directory + "/outside.json"
+        try Data("original".utf8).write(to: URL(fileURLWithPath: target))
+        try FileManager.default.createSymbolicLink(
+            atPath: archivePath + ".meta.json", withDestinationPath: target)
+
+        #expect(throws: (any Error).self) {
+            try store.writeMetadata(archivePath: archivePath, vmName: "vm",
+                                    label: nil, createdAt: Date())
+        }
+        #expect(try String(contentsOfFile: target, encoding: .utf8) == "original")
+    }
+
     @Test func foreignArchivesDegradeGracefully() throws {
         let (store, directory) = makeStore()
         touch(directory + "/mystery.tvm", size: 64)

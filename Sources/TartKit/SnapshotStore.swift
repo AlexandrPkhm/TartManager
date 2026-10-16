@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// One snapshot archive in the app-managed snapshots folder.
 public struct Snapshot: Identifiable, Equatable, Sendable {
@@ -82,15 +83,46 @@ public final class SnapshotStore: @unchecked Sendable {
     /// memo cache is invalidated so the next scan observes the new entry.
     public func writeMetadata(archivePath: String, vmName: String, label: String?,
                               createdAt: Date) throws {
+        let archiveURL = URL(fileURLWithPath: archivePath).standardizedFileURL
+        let directoryURL = URL(fileURLWithPath: directory, isDirectory: true).standardizedFileURL
+        guard archiveURL.deletingLastPathComponent() == directoryURL,
+              archiveURL.pathExtension == "tvm" else {
+            throw SnapshotStoreError.invalidArchivePath
+        }
         let metadata = Metadata(vmName: vmName, label: label, createdAt: createdAt)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(metadata)
-        try data.write(to: URL(fileURLWithPath: archivePath + ".meta.json"))
+        let directoryDescriptor = open(directory, O_RDONLY | O_DIRECTORY)
+        guard directoryDescriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer { close(directoryDescriptor) }
+
+        let sidecarName = archiveURL.lastPathComponent + ".meta.json"
+        let sidecarDescriptor = sidecarName.withCString {
+            openat(directoryDescriptor, $0, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+                   S_IRUSR | S_IWUSR)
+        }
+        guard sidecarDescriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        do {
+            let handle = FileHandle(fileDescriptor: sidecarDescriptor, closeOnDealloc: true)
+            try handle.write(contentsOf: data)
+            try handle.close()
+        } catch {
+            unlinkat(directoryDescriptor, sidecarName, 0)
+            throw error
+        }
         lock.lock()
         cachedFingerprint = nil
         cachedCatalog = nil
         lock.unlock()
+    }
+
+    private enum SnapshotStoreError: Error {
+        case invalidArchivePath
     }
 
     /// Snapshots for every VM, newest first; memoized per folder state

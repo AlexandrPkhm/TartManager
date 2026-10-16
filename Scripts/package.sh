@@ -45,10 +45,9 @@ Options:
                           Default is ad-hoc signing, which only works on the
                           machine that built it.
       --notarize          Notarize and staple the finished DMG. Requires
-                          --sign and the environment variables NOTARY_APPLE_ID,
-                          NOTARY_TEAM_ID, and NOTARY_PASSWORD.
+                          --sign and the NOTARY_PROFILE environment variable.
       --skip-build        Reuse the existing release binary instead of
-                          running `swift build -c release`.
+                          running swift build -c release.
   -o, --output DIR        Output directory for the DMG (default: dist/).
   -h, --help              Show this help.
 EOF
@@ -209,15 +208,11 @@ notarize_dmg() {
         return
     fi
     [[ -n "$SIGN_IDENTITY" ]] || fail "--notarize requires --sign"
-    [[ -n "${NOTARY_APPLE_ID:-}" ]] || fail "--notarize requires NOTARY_APPLE_ID"
-    [[ -n "${NOTARY_TEAM_ID:-}" ]] || fail "--notarize requires NOTARY_TEAM_ID"
-    [[ -n "${NOTARY_PASSWORD:-}" ]] || fail "--notarize requires NOTARY_PASSWORD"
+    [[ -n "${NOTARY_PROFILE:-}" ]] || fail "--notarize requires NOTARY_PROFILE"
 
     echo "==> Submitting DMG for notarization"
     xcrun notarytool submit "$dmg_path" \
-        --apple-id "$NOTARY_APPLE_ID" \
-        --team-id "$NOTARY_TEAM_ID" \
-        --password "$NOTARY_PASSWORD" \
+        --keychain-profile "$NOTARY_PROFILE" \
         --wait
     echo "==> Stapling notarization ticket"
     xcrun stapler staple "$dmg_path"

@@ -103,6 +103,17 @@ import Foundation
         #expect(lines.contains("run vm-a"))
     }
 
+    @Test func vmStoragePathRejectsTraversalNamesEvenWhenTheirTargetExists() throws {
+        let storagePath = VMStorageFixture.make(storageWithVM: "vm-a", os: "darwin")
+        let escapedDirectory = storagePath + "/escaped"
+        try FileManager.default.createDirectory(atPath: escapedDirectory, withIntermediateDirectories: true)
+        let environment = TartCommandEnvironment(storagePath: storagePath).environment
+
+        #expect(TartClient.vmStoragePath(environment: environment, name: "vm-a")
+            == storagePath + "/vms/vm-a")
+        #expect(TartClient.vmStoragePath(environment: environment, name: "../escaped") == nil)
+    }
+
     @Test func quickExitMapsToTartClientError() {
         let stub = StubBinary.make(script: "#!/bin/sh\necho 'no such VM' 1>&2\nexit 12\n")
         let client = TartClient(binaryPath: stub)
