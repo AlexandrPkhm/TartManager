@@ -34,7 +34,7 @@ inventory a macOS interface.
 
 ## Requirements
 
-- macOS 14 (Sonoma) or later on a Mac supported by tart.
+- macOS 14 (Sonoma) or later on an Apple silicon (ARM64) Mac.
 - [tart](https://github.com/cirruslabs/tart) 2.0.0 or later. Tart Manager
   does not bundle tart.
 
