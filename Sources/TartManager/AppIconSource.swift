@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Tart Manager ships in two layouts:
 /// - the packaged `.app` assembled by `Scripts/package.sh`, where the icon is
-///   copied to `Contents/Resources/AppIcon.icns` (see DEPLOYMENT.md →
+///   copied to `Contents/Resources/AppIcon.icns` (see docs/DEPLOYMENT.md →
 ///   Packaging); and
 /// - the bare `swift run` / `swift build` binary, where SwiftPM materializes
 ///   the resource as `<Target>_<Package>.bundle/Contents/Resources/AppIcon.icns`

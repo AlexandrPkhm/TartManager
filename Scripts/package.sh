@@ -9,7 +9,7 @@
 #   4. DMG creation     hdiutil (app + /Applications symlink)
 #   5. Notarization     optional, via --notarize (Developer ID signing required)
 #
-# See DEPLOYMENT.md → Packaging for the manual, step-by-step equivalent and
+# See docs/DEPLOYMENT.md → Packaging for the manual, step-by-step equivalent and
 # the rationale for each decision (bundle ID, icon source, notarization).
 set -euo pipefail
 
@@ -22,7 +22,7 @@ APP_NAME="Tart Manager"
 APP_BUNDLE="$APP_NAME.app"
 EXECUTABLE="TartManager"
 # Must stay "TartManager" (not reverse-DNS): it is the UserDefaults domain
-# the bare `swift run` binary already uses. See DEPLOYMENT.md → Packaging.
+# the bare `swift run` binary already uses. See docs/DEPLOYMENT.md → Packaging.
 BUNDLE_ID="TartManager"
 MIN_MACOS="14.0"
 FALLBACK_VERSION="1.0.0"

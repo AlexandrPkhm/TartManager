@@ -1,8 +1,8 @@
 # Tart Manager — Development Guide
 
 This guide covers everything you need to set up, run, and contribute to Tart
-Manager. User-facing documentation is in [`README.md`](README.md); code
-guidelines and architecture rules are in [`AGENTS.md`](AGENTS.md).
+Manager. User-facing documentation is in [`README.md`](../README.md); code
+guidelines and architecture rules are in [`AGENTS.md`](../AGENTS.md).
 
 ## Table of Contents
 
@@ -152,7 +152,7 @@ automatically; press ⌘R to run the app under the debugger.
 
 1. Create a feature branch off `main`.
 2. Follow the architecture rules and code style in
-   [`AGENTS.md`](AGENTS.md); add tests for every new behavior.
+   [`AGENTS.md`](../AGENTS.md); add tests for every new behavior.
 3. Verify before pushing:
 
    ```sh
@@ -171,7 +171,7 @@ Commit messages follow the existing style: `feat: initial implementation`,
 
 Code guidelines — architecture rules, error normalization, logging
 categories, concurrency, and Swift 5 language mode constraints — are
-documented in [`AGENTS.md`](AGENTS.md). Follow it; it is the authoritative
+documented in [`AGENTS.md`](../AGENTS.md). Follow it; it is the authoritative
 style reference for this repository.
 
 ### Testing
@@ -350,8 +350,8 @@ rm control.sock
 
 ## Additional Resources
 
-- [`README.md`](README.md) — user-facing overview and feature documentation.
-- [`AGENTS.md`](AGENTS.md) — code guidelines and architecture rules.
+- [`README.md`](../README.md) — user-facing overview and feature documentation.
+- [`AGENTS.md`](../AGENTS.md) — code guidelines and architecture rules.
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — production configuration and rollout.
 - [`LICENSE`](LICENSE) — MIT.
 - [tart](https://github.com/cirruslabs/tart) — the wrapped CLI's repository.

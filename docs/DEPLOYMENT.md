@@ -9,7 +9,7 @@ prerequisites on each Mac that will manage VMs.
 This document covers the production configuration surface — environment
 variables, the `tart` CLI dependency, registry access, error reporting, and
 logging — and how to package the app into a distributable DMG. Development
-setup is covered in [README.md](README.md); CI/CD automation is out of scope
+setup is covered in [README.md](../README.md); CI/CD automation is out of scope
 here.
 
 ## Table of Contents
