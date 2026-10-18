@@ -55,12 +55,11 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
-├── Design/                        # Approved design references
 ├── Scripts/package.sh             # Release build, app bundle, signing, and DMG packaging
 ├── .github/workflows/ci.yml       # GitHub Actions test workflow
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
-├── docs/
+├── Docs/
 │   ├── DEVELOPMENT.md              # Contributor setup and development guide
 │   └── DEPLOYMENT.md               # Packaging, signing, release, and operations reference
 └── LICENSE                        # MIT license
@@ -93,8 +92,8 @@ virtualization.
 - You MUST add or update Swift Testing cases for every changed behavior and
   keep the full deterministic suite passing.
 
-- You MUST update `README.md`, `docs/DEVELOPMENT.md`, or
-  `docs/DEPLOYMENT.md` when a change affects the audience each document serves.
+- You MUST update `README.md`, `Docs/DEVELOPMENT.md`, or
+  `Docs/DEPLOYMENT.md` when a change affects the audience each document serves.
 
 - You MUST update the Project Structure section of this file when the
   repository structure changes.
@@ -245,8 +244,8 @@ environment.
   never hardcode, log, or persist them outside the operating system's intended
   credential facilities.
 - Keep user features in `README.md`, contributor procedures in
-  `docs/DEVELOPMENT.md`, and packaging or operations details in
-  `docs/DEPLOYMENT.md`.
+  `Docs/DEVELOPMENT.md`, and packaging or operations details in
+  `Docs/DEPLOYMENT.md`.
 
 ### Other
 

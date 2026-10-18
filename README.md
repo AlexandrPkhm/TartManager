@@ -63,8 +63,8 @@ lets you retry or choose another folder without restarting.
 
 ## Documentation
 
-- [Development guide](docs/DEVELOPMENT.md) — build, test, and contribute.
-- [Deployment guide](docs/DEPLOYMENT.md) — package, sign, configure, and
+- [Development guide](Docs/DEVELOPMENT.md) — build, test, and contribute.
+- [Deployment guide](Docs/DEPLOYMENT.md) — package, sign, configure, and
   operate the app.
 - [Changelog](CHANGELOG.md) — release history and unreleased changes.
 - [License](LICENSE) — MIT License.
