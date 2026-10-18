@@ -50,6 +50,10 @@ Download the DMG from the [latest GitHub release](../../releases/latest),
 open it, and drag **Tart Manager** to **Applications**. The app is distributed
 separately from tart, so install the requirement above first.
 
+> **Unsigned release:** Tart Manager is not signed with an Apple Developer ID
+> or notarized. macOS may warn that it cannot verify the developer. To open
+> it, Control-click the app, choose **Open**, then confirm **Open** again.
+
 ## Get started
 
 1. Open Tart Manager from Applications.
