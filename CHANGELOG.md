@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Fixed
+
+- Fixed the main-window controls (close, minimize, zoom) so they align with
+  the top bar and stay in position while the window resizes.
+
 ## 1.0.0 - 2026-10-13
 
 ### Added

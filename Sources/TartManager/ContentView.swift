@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var page: WorkspacePage = .machines
     @State private var importPath: String = ""
     @State private var importSuggestedName: String = ""
+    @State private var titlebarHeight = WindowTitlebarConfiguration.defaultHeight
 
     /// The one modal presented: onboarding while storage is unconfigured,
     /// otherwise the newest normalized failure, otherwise the create sheet,
@@ -58,6 +59,7 @@ struct ContentView: View {
             content
                 .frame(maxHeight: .infinity)
         }
+        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 760, minHeight: 580)
         .background(WorkspaceStyle.background)
         .foregroundStyle(WorkspaceStyle.text)
@@ -160,9 +162,11 @@ struct ContentView: View {
                 .buttonStyle(WorkspaceButtonStyle())
                 .keyboardShortcut("n", modifiers: .command)
         }
-        .padding(.leading, 94).padding(.trailing, 18).frame(height: 56)
+        .padding(.leading, 94).padding(.trailing, 18).frame(height: titlebarHeight)
         .background(WorkspaceStyle.panel)
-        .background(WindowControlsAlignment())
+        .background(UnifiedTitlebar { height in
+            if titlebarHeight != height { titlebarHeight = height }
+        })
     }
 
     /// Runs the system file picker for `.tvm` archives; the flow stays
