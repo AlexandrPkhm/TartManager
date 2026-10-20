@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 1.1.0 - 2026-10-20
+
 ### Changed
 
 - Changed the VM storage unavailable screen to show the cause, the storage
