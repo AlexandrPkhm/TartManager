@@ -44,6 +44,9 @@ struct VMListView: View {
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(page == .machines && selection?.id == entry.id ? .isSelected : [])
                     }
+                    JobListSection(jobManager: model.jobManager) {
+                        sectionLabel(JobRowCopy.sectionTitle)
+                    }
                 }
                 .padding(.horizontal, 12).padding(.top, 17)
             }

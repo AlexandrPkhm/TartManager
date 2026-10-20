@@ -189,7 +189,13 @@ public final class JobManager: ObservableObject {
         case duplicateTarget(name: String)
     }
 
-    public init() {}
+    /// How long a completed or cancelled record stays in `jobs` before it
+    /// is released (`JobRetentionPolicy`). Tests inject a short delay.
+    private let releaseDelay: Duration
+
+    public init(releaseDelay: Duration = JobRetentionPolicy.releaseDelay) {
+        self.releaseDelay = releaseDelay
+    }
 
     /// Starts a job for `kind` (its target is derived — finding 5). A
     /// duplicate target is refused with an observable `.duplicateTarget`
@@ -280,6 +286,9 @@ public final class JobManager: ObservableObject {
                 if let info = self.jobs.first(where: { $0.id == id }) {
                     self.onStateChange?(info)   // observers see the summary (finding 3)
                 }
+                if JobRetentionPolicy.releasesAutomatically(outcome) {
+                    self.scheduleRelease(id: id)
+                }
             }
         }
         return .started(info)
@@ -318,6 +327,16 @@ public final class JobManager: ObservableObject {
             return nil
         }
         return DiskSpacePolicy.verdict(freeBytes: freeBytes, estimatedNeedBytes: need)
+    }
+
+    /// Releases a finished record after `releaseDelay`. The task holds the
+    /// manager weakly, so it never extends the manager's lifetime.
+    private func scheduleRelease(id: UUID) {
+        let delay = releaseDelay
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.dismiss(id: id)
+        }
     }
 
     private func updateJob(id: UUID, _ mutate: (inout JobInfo) -> Void) {
