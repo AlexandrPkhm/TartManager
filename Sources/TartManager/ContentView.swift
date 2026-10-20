@@ -83,6 +83,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification)) { _ in
             model.checkAutomaticPruning()
+            model.refreshAvailability()
             Task { await model.inventoryService.refresh() }
         }
         .task {

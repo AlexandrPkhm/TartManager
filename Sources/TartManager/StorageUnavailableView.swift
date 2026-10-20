@@ -9,37 +9,78 @@ struct StorageUnavailableView: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
-        ContentUnavailableView {
-            Label("VM storage unavailable", systemImage: "externaldrive.badge.xmark")
-        } description: {
-            Text(descriptionText)
-        } actions: {
-            HStack {
-                Button("Choose Another Folder…") { chooseAnother() }
-                Button("Retry") { model.refreshAvailability() }
+        let (path, reason) = unavailableDetails
+        let copy = StorageUnavailableCopy(reason: reason)
+        VStack(spacing: 0) {
+            Image(systemName: "externaldrive.badge.xmark")
+                .font(.system(size: 26))
+                .foregroundStyle(WorkspaceStyle.warning)
+                .frame(width: 64, height: 64)
+                .background(WorkspaceStyle.warningBackground, in: Circle())
+                .padding(.bottom, 16)
+            Text(StorageUnavailableCopy.title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(WorkspaceStyle.text)
+                .padding(.bottom, 6)
+            Text(copy.headline)
+                .font(.system(size: 13))
+                .foregroundStyle(WorkspaceStyle.muted)
+                .padding(.bottom, 14)
+            pathChip(path)
+                .padding(.bottom, 14)
+            Text(copy.hint)
+                .font(.system(size: 13))
+                .foregroundStyle(WorkspaceStyle.muted)
+                .padding(.bottom, 20)
+            HStack(spacing: 10) {
+                Button { chooseAnother() } label: {
+                    Label("Choose Another Folder…", systemImage: "folder")
+                }
+                .buttonStyle(WorkspaceButtonStyle())
+                Button { model.refreshAvailability() } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(WorkspaceButtonStyle(primary: true))
+                .keyboardShortcut(.defaultAction)
             }
+            .fixedSize()
+            .padding(.bottom, 14)
+            Text(StorageUnavailableCopy.autoRetryNote)
+                .font(.system(size: 11))
+                .foregroundStyle(WorkspaceStyle.muted)
         }
+        .multilineTextAlignment(.center)
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WorkspaceStyle.background)
     }
 
-    private var currentAvailability: StorageAvailability {
-        if !model.storageAvailability.isAvailable { return model.storageAvailability }
-        return .unavailable(path: StorageLocationValidator.defaultPath, reason: .missing)
+    private func pathChip(_ path: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "folder").foregroundStyle(WorkspaceStyle.muted)
+            Text(path)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(WorkspaceStyle.text)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+            CopyButton(value: path, systemImage: "doc.on.doc")
+                .buttonStyle(.plain)
+                .foregroundStyle(WorkspaceStyle.muted)
+                .help("Copy path")
+        }
+        .font(.system(size: 12))
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(maxWidth: 480)
+        .fixedSize(horizontal: false, vertical: true)
+        .workspacePanel()
     }
 
-    private var descriptionText: String {
-        switch currentAvailability {
-        case .available:
-            return ""
-        case .unavailable(let path, let reason):
-            switch reason {
-            case .missing:
-                return "The configured VM storage can't be reached:\n\(path)\n\n"
-                     + "Mount the volume, or choose another folder."
-            case .notWritable:
-                return "The configured VM storage exists but is not writable:\n\(path)\n\n"
-                     + "Fix the folder's permissions, or choose another folder."
-            }
+    private var unavailableDetails: (path: String, reason: StorageUnavailableReason) {
+        if case .unavailable(let path, let reason) = model.storageAvailability {
+            return (path, reason)
         }
+        return (StorageLocationValidator.defaultPath, .missing)
     }
 
     private func chooseAnother() {

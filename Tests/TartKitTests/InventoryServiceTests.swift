@@ -138,4 +138,35 @@ extension InventoryServiceTests {
         await service.refreshIfStale(olderThan: 0.2)
         #expect(counter.value == 2) // a failed poll must not block the next attempt
     }
+
+    @MainActor
+    @Test func pausedServiceSkipsFetches() async {
+        var calls = 0
+        let service = InventoryService(fetch: { calls += 1; return [] })
+        service.pause()
+        #expect(service.isPaused)
+        await service.refresh()
+        await service.refreshIfStale()
+        #expect(calls == 0)
+        #expect(service.inventory == nil)
+    }
+
+    @MainActor
+    @Test func resumeAllowsFetchesAgain() async {
+        var calls = 0
+        let service = InventoryService(fetch: { calls += 1; return [] })
+        service.pause()
+        #expect(service.resume())
+        #expect(!service.isPaused)
+        await service.refresh()
+        #expect(calls == 1)
+        #expect(service.inventory != nil)
+    }
+
+    @MainActor
+    @Test func resumeWithoutPauseReportsNoChange() {
+        let service = InventoryService(fetch: { [] })
+        #expect(service.resume() == false)
+        #expect(!service.isPaused)
+    }
 }

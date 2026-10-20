@@ -130,6 +130,7 @@ final class AppModel: ObservableObject {
     }
 
     let inventoryService = InventoryService(fetch: { [] })
+    let storageRecheckTimer = StorageRecheckTimer()
 
     /// The client for the current state, or nil while unsatisfied.
     var makeTartClient: () -> TartClient? {
@@ -1188,6 +1189,7 @@ final class AppModel: ObservableObject {
     func refreshAvailability() {
         let previous = storageAvailability
         let current = StorageLocationValidator.availability(at: settings.storagePath)
+        applyStoragePollingPolicy(for: current)
         guard current != previous else { return }
         storageAvailability = current
         refreshStorageFreeBytes()   // Issue 9: probe rides availability changes
@@ -1199,6 +1201,21 @@ final class AppModel: ObservableObject {
                 "storage unavailable at \(path, privacy: .public): \(reason.rawValue, privacy: .public)")
         }
         checkAutomaticPruning()
+    }
+
+    /// While storage is unavailable, pause the `tart list` poll and recheck
+    /// the folder on the slow `StorageRecheckTimer` instead. Idempotent, so
+    /// every probe may call it.
+    private func applyStoragePollingPolicy(for availability: StorageAvailability) {
+        if availability.isAvailable {
+            storageRecheckTimer.stop()
+            if inventoryService.resume() {
+                Task { await inventoryService.refresh() }
+            }
+        } else {
+            inventoryService.pause()
+            storageRecheckTimer.start { [weak self] in self?.refreshAvailability() }
+        }
     }
 
     /// The single gate for storage changes: validate once, then commit.

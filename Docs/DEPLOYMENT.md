@@ -1,7 +1,7 @@
 # Deployment
 
 Tart Manager is a native macOS application deployed to end-user machines — a
-GUI control center for the [tart](https://github.com/cirruslabs/tart) CLI. It
+GUI control center for the [tart](https://github.com/openai/tart) CLI. It
 has no server-side components, no containers, and no cloud services of its
 own. "Deployment" therefore means installing and configuring the app and its
 prerequisites on each Mac that will manage VMs.
@@ -412,8 +412,8 @@ in-app signals instead:
 | Signal | What it checks | Behavior on failure |
 | --- | --- | --- |
 | Prerequisite status | `tart` present and `>= 2.0.0` | Remediation banner (`brew install` / `brew upgrade`) |
-| Storage availability | Configured path exists and is writable | Re-probed on every inventory poll; storage-unavailable state with recovery actions |
-| Inventory polling | `tart list` every 3 seconds | Failures degrade to the storage-unavailable state, never modal errors |
+| Storage availability | Configured path exists and is writable | Re-probed on every inventory poll; while unavailable, re-probed every 30 seconds, on app activation, and on Retry; storage-unavailable state with recovery actions |
+| Inventory polling | `tart list` every 3 seconds | Paused while storage is unavailable; failures degrade to the storage-unavailable state, never modal errors |
 
 Operational verification of a fresh deployment:
 

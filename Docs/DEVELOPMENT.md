@@ -354,6 +354,6 @@ rm control.sock
 - [`AGENTS.md`](../AGENTS.md) — code guidelines and architecture rules.
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — production configuration and rollout.
 - [`LICENSE`](LICENSE) — MIT.
-- [tart](https://github.com/cirruslabs/tart) — the wrapped CLI's repository.
+- [tart](https://github.com/openai/tart) — the wrapped CLI's repository.
 - `.sdd/` (gitignored) — the spec-driven-development trail: PRD plus
   per-issue plan/review/validation documents.
