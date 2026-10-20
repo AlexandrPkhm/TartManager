@@ -91,13 +91,8 @@ import Foundation
         }
         // The stub needs a moment to be scheduled and write its capture
         // (measured ~0.3 s even unloaded); poll instead of racing the read.
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: captureFile),
-              Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        let captured = try String(contentsOfFile: captureFile, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let captured = CaptureFile.waitForLines(atPath: captureFile, count: 1)
+            .joined(separator: "\n")
         #expect(captured == "/tmp/expected-home")
     }
 }

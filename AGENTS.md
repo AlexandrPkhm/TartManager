@@ -52,7 +52,7 @@ virtualization.
 ├── Tests/
 │   ├── TartKitTests/              # Hermetic TartKit suites, fixtures, and test support
 │   │   ├── Fixtures/              # Captured tart output for analyzer tests
-│   │   └── TestSupport/           # StubBinary and VM storage fixtures
+│   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
 ├── Scripts/package.sh             # Release build, app bundle, signing, and DMG packaging
@@ -228,6 +228,10 @@ environment.
 - Keep tests hermetic. Use `StubBinary` for fake tart executables,
   `VMStorageFixture` for storage layouts, injected closures for collaborators,
   and isolated `UserDefaults(suiteName:)` instances for preferences.
+- Read a stub's capture file through `CaptureFile.waitForLines(atPath:count:)`
+  with the number of lines the stub writes. Do not poll only
+  `FileManager.fileExists`: the shell creates the file before it writes the
+  line, so the read can see an empty file.
 - Use `JobManager.awaitIdle` to wait for jobs. Capture a real tart stderr
   fixture only when an analyzer signature requires it.
 - Add tests for failure, validation, and reconciliation paths as well as happy

@@ -55,13 +55,8 @@ import Foundation
         }
         // The stub needs a moment to be scheduled and write its capture;
         // poll instead of racing the read.
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n")
+        let lines = try await CaptureFile.waitForLines(
+            atPath: invocationFile, count: 1)
         #expect(lines.count == 1)
         #expect(lines.first == "run --suspendable vm-a")
     }
@@ -119,13 +114,8 @@ import Foundation
             first.process.terminate(); first.process.waitUntilExit()
             second.process.terminate(); second.process.waitUntilExit()
         }
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n")
+        let lines = try await CaptureFile.waitForLines(
+            atPath: invocationFile, count: 2)
         #expect(lines.count == 2) // run → stop → run spawns again
     }
 
@@ -220,13 +210,8 @@ import Foundation
             first.process.terminate(); first.process.waitUntilExit()
             second.process.terminate(); second.process.waitUntilExit()
         }
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n")
+        let lines = try await CaptureFile.waitForLines(
+            atPath: invocationFile, count: 2)
         #expect(lines.count == 2) // run → suspend (release) → resume runs again
         #expect(lines.allSatisfy { String($0) == "run --suspendable vm-a" })
     }
