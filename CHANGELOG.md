@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 1.2.0 - 2026-10-20
+
 ### Added
 
 - Added a **Jobs** section at the bottom of the main-window sidebar that shows
