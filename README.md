@@ -62,8 +62,10 @@ separately from tart, so install the requirement above first.
 3. Select a VM in the inventory and choose **Run**, or create one from an OCI
    image or IPSW restore image.
 
-If the storage volume is unavailable, Tart Manager shows the affected path and
-lets you retry or choose another folder without restarting.
+If the storage volume is unavailable, Tart Manager shows the cause and the
+affected path, and lets you retry or choose another folder without restarting.
+Tart Manager also checks storage again every 30 seconds and when you switch
+back to the app, so the VM list comes back after you mount the volume.
 
 ## Documentation
 
@@ -72,3 +74,10 @@ lets you retry or choose another folder without restarting.
   operate the app.
 - [Changelog](CHANGELOG.md) — release history and unreleased changes.
 - [License](LICENSE) — MIT License.
+
+## Acknowledgments
+
+Huge thanks to the creators and contributors of
+[Tart](https://github.com/openai/tart), the virtualization toolset that makes
+Tart Manager possible. Tart builds on Apple's Virtualization.framework to run
+macOS and Linux VMs on Apple silicon.

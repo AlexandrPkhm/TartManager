@@ -120,6 +120,9 @@ virtualization.
   job, and coordinator state that views observe.
 - Keep blocking tart work off the UI thread with `Task.detached`, using
   `.userInitiated` for user actions and `.utility` for polling.
+- Spawn no polling tart process while storage is unavailable. Pause
+  `InventoryService` and recheck storage with `StorageRecheckTimer`; resume
+  polling only when `AppModel.refreshAvailability()` sees storage again.
 - Keep the main window, Settings scene, and menu-bar controls on the same
   `AppModel` so they use identical safety checks and error presentation.
 - Persist user preferences through the validated `AppSettings` surface; do not
@@ -184,6 +187,12 @@ environment.
   `Equatable` and `Sendable` where appropriate; use caseless enums for
   stateless helpers and `final class` for stateful services.
 - Mark public only the TartKit surface needed by the executable target.
+- Take every view color from `WorkspaceStyle` in
+  `Sources/TartManager/WorkspaceStyle.swift`. Define a new color there with
+  explicit light and dark values; never hardcode a color in a view.
+- Keep reason-specific UI copy in a small value type, such as
+  `StorageUnavailableCopy`, so `Tests/TartManagerTests/` can test it without
+  rendering the view.
 - Keep code compatible with Swift 5 language mode. Use extended regex literals
   (`#/…/#`), and assemble long interpolated log messages before logging when
   needed to avoid type-checker timeouts.

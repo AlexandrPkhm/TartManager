@@ -29,6 +29,36 @@ import AppKit
         #expect(model.requiresOnboarding == false)
     }
 
+    @Test func unavailableStoragePausesPollingAndStartsRecheck() throws {
+        let dir = makeTempDirectory()
+        let model = makeIsolatedModel()
+        _ = model.attemptChooseStorage(path: dir)
+        #expect(!model.inventoryService.isPaused)
+        #expect(!model.storageRecheckTimer.isRunning)
+
+        try FileManager.default.removeItem(atPath: dir)
+        model.refreshAvailability()
+
+        #expect(model.storageAvailability == .unavailable(path: dir, reason: .missing))
+        #expect(model.inventoryService.isPaused)
+        #expect(model.storageRecheckTimer.isRunning)
+    }
+
+    @Test func recoveredStorageResumesPollingAndStopsRecheck() throws {
+        let dir = makeTempDirectory()
+        let model = makeIsolatedModel()
+        _ = model.attemptChooseStorage(path: dir)
+        try FileManager.default.removeItem(atPath: dir)
+        model.refreshAvailability()
+
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        model.refreshAvailability()
+
+        #expect(model.storageAvailability == .available(path: dir))
+        #expect(!model.inventoryService.isPaused)
+        #expect(!model.storageRecheckTimer.isRunning)
+    }
+
     @Test func appearanceLoadsSavedChoiceAndPersistsChanges() {
         let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
         let settings = AppSettings(defaults: defaults)
@@ -138,6 +168,7 @@ import AppKit
 extension AppModelTests {
     @Test func isNameAvailableReflectsInventoryAndInFlightJobs() async {
         let model = makeIsolatedModel()
+        _ = model.attemptChooseStorage(path: makeTempDirectory())
         model.inventoryService.updateFetch {
             [VMEntry(name: "vm-a", source: "local", running: false, state: "stopped",
                      diskSize: 0, diskUsage: 0, accessed: nil)]

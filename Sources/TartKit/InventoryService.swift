@@ -50,6 +50,10 @@ public final class InventoryService: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var isFetching = false
 
+    /// True while storage is unavailable. A paused service spawns no fetch:
+    /// both the poll and trigger-driven refreshes return at once.
+    public private(set) var isPaused = false
+
     public init(fetch: @escaping () throws -> [VMEntry],
                 pollInterval: TimeInterval = InventoryService.defaultPollInterval,
                 memoryGatherTimeout: TimeInterval = InventoryService.defaultMemoryGatherTimeout) {
@@ -69,7 +73,7 @@ public final class InventoryService: ObservableObject {
     /// stall); failures keep the last inventory and report through
     /// `onFetchFailure`.
     public func refresh() async {
-        guard !isFetching else { return }
+        guard !isPaused, !isFetching else { return }
         isFetching = true
         defer { isFetching = false }
         let fetch = self.fetch
@@ -181,5 +185,23 @@ public final class InventoryService: ObservableObject {
     public func stopPolling() {
         pollTask?.cancel()
         pollTask = nil
+    }
+
+    /// Stops fetching until `resume()`. The poll loop keeps its schedule but
+    /// skips every fetch, so `startPolling()` order does not matter.
+    public func pause() {
+        guard !isPaused else { return }
+        isPaused = true
+        Logger.storage.info("inventory polling paused while storage is unavailable")
+    }
+
+    /// Ends a pause. Returns true when the service was paused, so the caller
+    /// can fetch at once instead of waiting for the next poll.
+    @discardableResult
+    public func resume() -> Bool {
+        guard isPaused else { return false }
+        isPaused = false
+        Logger.storage.info("inventory polling resumed")
+        return true
     }
 }

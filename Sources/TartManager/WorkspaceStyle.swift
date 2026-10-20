@@ -13,6 +13,8 @@ enum WorkspaceStyle {
     static let selected = color(0xdce9fb, 0x303f58)
     static let green = color(0x197345, 0x77d6a0)
     static let primary = color(0x246bdb, 0x246bdb)
+    static let warning = color(0xb25e09, 0xf0b46a)
+    static let warningBackground = color(0xfdf1e3, 0x3a2f22)
 
     private static func color(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
