@@ -4,10 +4,14 @@
 #
 # Stages:
 #   1. Release build    swift build -c release
-#   2. Bundle assembly  assemble "Tart Manager.app" (binary, icon, Info.plist)
-#   3. Code signing     ad-hoc by default; --sign for a Developer ID identity
+#   2. Bundle assembly  assemble "Tart Manager.app" (binary, icon, Info.plist,
+#                       Sparkle.framework)
+#   3. Code signing     ad-hoc by default; --sign for a Developer ID identity.
+#                       Nested Sparkle code is signed inside-out, never --deep.
 #   4. DMG creation     hdiutil (app + /Applications symlink)
 #   5. Notarization     optional, via --notarize (Developer ID signing required)
+#   6. Appcast          optional, via --appcast: the EdDSA-signed update feed
+#                       and Markdown release notes from CHANGELOG.md
 #
 # See Docs/DEPLOYMENT.md → Packaging for the manual, step-by-step equivalent and
 # the rationale for each decision (bundle ID, icon source, notarization).
@@ -27,9 +31,19 @@ BUNDLE_ID="TartManager"
 MIN_MACOS="14.0"
 FALLBACK_VERSION="1.0.0"
 
+# In-app updates (Sparkle). The public key is the trust anchor for every
+# update; its private half stays in the maintainer's login Keychain. See
+# Docs/DEPLOYMENT.md → In-App Updates.
+SPARKLE_PUBLIC_ED_KEY="fji7wp6SDYVkEnj4+Fv8kN6J+6NrtSAr1w10K1zHzdA="
+FEED_URL="https://github.com/AlexandrPkhm/TartManager/releases/latest/download/appcast.xml"
+DOWNLOAD_URL_PREFIX_BASE="https://github.com/AlexandrPkhm/TartManager/releases/download"
+PROJECT_URL="https://github.com/AlexandrPkhm/TartManager"
+SPARKLE_BIN="$ROOT/.build/artifacts/sparkle/Sparkle/bin"
+
 VERSION=""
 SIGN_IDENTITY=""
 NOTARIZE=false
+APPCAST=false
 SKIP_BUILD=false
 OUTPUT_DIR="$ROOT/dist"
 
@@ -46,6 +60,10 @@ Options:
                           machine that built it.
       --notarize          Notarize and staple the finished DMG. Requires
                           --sign and the NOTARY_PROFILE environment variable.
+      --appcast           Write the signed update feed to DIR/updates/:
+                          appcast.xml, the DMG, and release notes from the
+                          CHANGELOG.md section for VERSION. Signs with the
+                          EdDSA key in the login Keychain.
       --skip-build        Reuse the existing release binary instead of
                           running swift build -c release.
   -o, --output DIR        Output directory for the DMG (default: dist/).
@@ -75,6 +93,10 @@ parse_args() {
                 NOTARIZE=true
                 shift
                 ;;
+            --appcast)
+                APPCAST=true
+                shift
+                ;;
             --skip-build)
                 SKIP_BUILD=true
                 shift
@@ -97,7 +119,7 @@ parse_args() {
 
 require_tools() {
     local tool
-    for tool in hdiutil codesign plutil swift xcrun; do
+    for tool in hdiutil codesign plutil swift xcrun install_name_tool ditto; do
         command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
     done
     if [[ "$SKIP_BUILD" != true ]]; then
@@ -105,6 +127,10 @@ require_tools() {
     fi
     if [[ "$NOTARIZE" == true ]]; then
         command -v xcrun >/dev/null 2>&1 || fail "required tool not found: xcrun"
+    fi
+    if [[ "$APPCAST" == true ]]; then
+        [[ -x "$SPARKLE_BIN/generate_appcast" ]] || \
+            fail "generate_appcast not found at $SPARKLE_BIN — run swift build first"
     fi
 }
 
@@ -136,8 +162,9 @@ assemble_app() {
     local bundle="$1"
     echo "==> Assembling $APP_BUNDLE"
 
-    mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
+    mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources" "$bundle/Contents/Frameworks"
     cp "$BINARY_PATH" "$bundle/Contents/MacOS/$EXECUTABLE"
+    embed_sparkle "$bundle"
 
     cat > "$bundle/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -150,9 +177,14 @@ assemble_app() {
     <key>CFBundleDisplayName</key>      <string>$APP_NAME</string>
     <key>CFBundlePackageType</key>      <string>APPL</string>
     <key>CFBundleShortVersionString</key> <string>$VERSION</string>
-    <key>CFBundleVersion</key>          <string>1</string>
+    <key>CFBundleVersion</key>          <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>   <string>$MIN_MACOS</string>
     <key>NSHighResolutionCapable</key>  <true/>
+    <key>SUFeedURL</key>                <string>$FEED_URL</string>
+    <key>SUPublicEDKey</key>            <string>$SPARKLE_PUBLIC_ED_KEY</string>
+    <key>SUEnableAutomaticChecks</key>  <true/>
+    <key>SUEnableSystemProfiling</key>  <false/>
+    <key>SUScheduledCheckInterval</key> <integer>86400</integer>
 </dict>
 </plist>
 PLIST
@@ -174,16 +206,49 @@ PLIST
         fail "generated Info.plist failed validation"
 }
 
+# Copies Sparkle.framework from the SwiftPM release products into the bundle.
+# The XPC services are only for sandboxed apps; Tart Manager is not sandboxed.
+# The release binary has no rpath to Contents/Frameworks, so one is added.
+embed_sparkle() {
+    local bundle="$1"
+    local source
+    source="$(dirname "$BINARY_PATH")/Sparkle.framework"
+    [[ -d "$source" ]] || fail "Sparkle.framework not found at $source"
+
+    local framework="$bundle/Contents/Frameworks/Sparkle.framework"
+    ditto "$source" "$framework"
+    rm -rf "$framework/Versions/B/XPCServices" "$framework/XPCServices"
+    install_name_tool -add_rpath "@executable_path/../Frameworks" \
+        "$bundle/Contents/MacOS/$EXECUTABLE"
+}
+
+# Signs one path. Ad-hoc signing never uses the hardened runtime: Library
+# Validation would then refuse the ad-hoc Sparkle.framework.
+sign_path() {
+    local path="$1"
+    if [[ -n "$SIGN_IDENTITY" ]]; then
+        codesign --force --options runtime --timestamp \
+            --sign "$SIGN_IDENTITY" "$path"
+    else
+        codesign --force --sign - "$path"
+    fi
+}
+
+# Signs nested code inside-out, then the bundle. Never use --deep.
 sign_app() {
     local bundle="$1"
+    local framework="$bundle/Contents/Frameworks/Sparkle.framework"
     if [[ -n "$SIGN_IDENTITY" ]]; then
         echo "==> Signing with Developer ID: $SIGN_IDENTITY"
-        codesign --force --options runtime --timestamp \
-            --sign "$SIGN_IDENTITY" "$bundle"
     else
         echo "==> Signing ad-hoc (this Mac only)"
-        codesign --force --sign - "$bundle"
     fi
+    sign_path "$framework/Versions/B/Autoupdate"
+    sign_path "$framework/Versions/B/Updater.app"
+    sign_path "$framework"
+    sign_path "$bundle"
+    codesign --verify --strict --verbose=2 "$bundle" || \
+        fail "code signature verification failed for $bundle"
 }
 
 create_dmg() {
@@ -218,6 +283,48 @@ notarize_dmg() {
     xcrun stapler staple "$dmg_path"
 }
 
+# Prints the body of the CHANGELOG.md section "## VERSION ..." up to the next
+# "## " heading, without the heading itself.
+changelog_section() {
+    awk -v version="$VERSION" '
+        /^## / {
+            if (found) exit
+            if ($2 == version) { found = 1; next }
+        }
+        found { print }
+    ' "$ROOT/CHANGELOG.md"
+}
+
+write_appcast() {
+    local dmg_path="$1"
+    if [[ "$APPCAST" != true ]]; then
+        return
+    fi
+    local updates_dir="${OUTPUT_DIR:?}/updates"
+    echo "==> Writing signed appcast to $updates_dir"
+
+    local notes
+    notes="$(changelog_section)"
+    [[ -n "${notes//[[:space:]]/}" ]] || \
+        fail "CHANGELOG.md has no non-empty '## $VERSION' section"
+
+    # One release per feed: start from an empty folder every time.
+    rm -rf "$updates_dir"
+    mkdir -p "$updates_dir"
+    cp "$dmg_path" "$updates_dir/"
+    printf '%s\n' "$notes" > "$updates_dir/TartManager-$VERSION.md"
+
+    "$SPARKLE_BIN/generate_appcast" \
+        --download-url-prefix "$DOWNLOAD_URL_PREFIX_BASE/v$VERSION/" \
+        --embed-release-notes \
+        --link "$PROJECT_URL" \
+        "$updates_dir"
+
+    [[ -f "$updates_dir/appcast.xml" ]] || fail "generate_appcast wrote no appcast.xml"
+    grep -q 'sparkle:edSignature' "$updates_dir/appcast.xml" || \
+        fail "appcast.xml has no sparkle:edSignature"
+}
+
 main() {
     parse_args "$@"
     resolve_version
@@ -235,6 +342,7 @@ main() {
     local dmg_path
     dmg_path="$(create_dmg "$STAGING_DIR")"
     notarize_dmg "$dmg_path"
+    write_appcast "$dmg_path"
 
     echo "==> Done: $dmg_path"
 }
