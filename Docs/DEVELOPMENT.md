@@ -173,9 +173,14 @@ automatically; press ⌘R to run the app under the debugger.
    swift test --no-parallel
    ```
 
-4. Open a pull request. CI (`.github/workflows/ci.yml`) runs on every PR:
-   job `test` on `macos-latest` executes `swift --version` then
-   `swift test`.
+4. Open a pull request. `.github/CODEOWNERS` requests the maintainer's
+   review on every pull request. CI does not run on pull requests, so the
+   local verification in step 3 is the only test gate.
+
+CI (`.github/workflows/ci.yml`) runs only when a `vX.Y.Z` tag is pushed:
+job `test` on `macos-latest` executes `swift --version` then
+`swift test --no-parallel`, and fails after 20 minutes. The workflow is
+currently disabled in the repository's Actions settings.
 
 Commit messages follow the existing style: `feat: initial implementation`,
 `Walking skeleton: repo bootstrap and tart prerequisite detection`.

@@ -61,7 +61,9 @@ virtualization.
 ├── Assets/                        # Source artwork and Icon Composer source
 ├── Scripts/package.sh             # Release build, app bundle, Sparkle embedding, signing,
 │                                  # DMG packaging, and the signed appcast (--appcast)
-├── .github/workflows/ci.yml       # GitHub Actions test workflow
+├── .github/
+│   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
+│   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
 ├── Docs/

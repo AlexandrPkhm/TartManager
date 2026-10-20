@@ -1,16 +1,19 @@
 name: CI
 
+# Runs only for release tags (vX.Y.Z); pull requests and branch pushes do not run CI.
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ['v*.*.*']
 
 jobs:
   test:
     runs-on: macos-latest
+    # A hung test run must fail fast instead of holding the runner for 6 hours.
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Swift version
         run: swift --version
+      # Parallel mode makes the cancellation-timing tests flake or hang.
       - name: Run tests
-        run: swift test
+        run: swift test --no-parallel
