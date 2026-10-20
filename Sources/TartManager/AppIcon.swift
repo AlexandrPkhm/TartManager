@@ -2,7 +2,7 @@ import AppKit
 import os
 
 /// Shares the compiled compatibility icon between bare SwiftPM launches
-/// (via `AppDelegate`) and the About sheet. Packaged apps let macOS render
+/// (via `AppDelegate`) and Settings → About. Packaged apps let macOS render
 /// the layered Icon Composer asset in the Dock.
 ///
 /// Resolution never crashes the app. The icon is looked up in the two

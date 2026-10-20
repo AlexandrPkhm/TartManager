@@ -28,8 +28,9 @@ virtualization.
 
 - **Language/Version**: Swift tools version 6.0, compiled in Swift 5 language
   mode (`swiftLanguageModes: [.v5]`).
-- **Primary Dependencies**: SwiftUI, AppKit, Foundation, Combine, and `os`;
-  the package has no external package dependencies.
+- **Primary Dependencies**: SwiftUI, AppKit, Foundation, Combine, and `os`.
+  The only external package is Sparkle `2.10.0` (the in-app updater), linked
+  only by the `TartManager` target.
 - **Storage**: `UserDefaults` stores application preferences. `tart` owns VM
   storage, which Tart Manager addresses through an injected `TART_HOME`.
 - **Testing**: Swift Testing (`@Suite`, `@Test`, and `#expect`).
@@ -38,24 +39,28 @@ virtualization.
 - **Performance Goals**: N/A; no numeric goals are documented.
 - **Constraints**: The GUI requires an installed `tart` 2.0.0+ binary, but
   builds and tests are hermetic. Swift 5 language mode restricts new syntax.
+  Release builds are signed ad-hoc and are not notarized.
 - **Scale/Scope**: A local, single-user control center for the host's tart VM
   inventory; it has no server component.
 
 ## Project Structure
 
 ```text
-├── Package.swift                  # SwiftPM manifest; TartKit and TartManager targets
+├── Package.swift                  # SwiftPM manifest; TartKit and TartManager targets, Sparkle pin
+├── Package.resolved               # Locked Sparkle revision; commit it with Package.swift
 ├── Sources/
 │   ├── TartKit/                   # CLI client, policies, jobs, state, and logging
-│   └── TartManager/               # SwiftUI application, views, menu bar, AppModel
+│   └── TartManager/               # SwiftUI application, views, menu bar, AppModel,
+│       │                          # UpdateController (the only Sparkle import)
 │       └── Resources/             # Packaged app resources
 ├── Tests/
 │   ├── TartKitTests/              # Hermetic TartKit suites, fixtures, and test support
 │   │   ├── Fixtures/              # Captured tart output for analyzer tests
-│   │   └── TestSupport/           # StubBinary and VM storage fixtures
+│   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
-├── Scripts/package.sh             # Release build, app bundle, signing, and DMG packaging
+├── Scripts/package.sh             # Release build, app bundle, Sparkle embedding, signing,
+│                                  # DMG packaging, and the signed appcast (--appcast)
 ├── .github/workflows/ci.yml       # GitHub Actions test workflow
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
@@ -75,7 +80,7 @@ virtualization.
 - **Run the GUI**: `swift run`
 - **Build the release binary**: `swift build -c release`
 - **Package a release DMG**:
-  `Scripts/package.sh --version <X.Y.Z> [--sign <identity>] [--notarize]`
+  `Scripts/package.sh --version <X.Y.Z> [--appcast] [--sign <identity>] [--notarize]`
 - **Lint and format**: N/A. No linter or formatter configuration exists in
   this repository; do not invent verification commands.
 
@@ -127,6 +132,12 @@ virtualization.
   `AppModel` so they use identical safety checks and error presentation.
 - Persist user preferences through the validated `AppSettings` surface; do not
   let SwiftUI views write settings ad hoc.
+- A Combine sink on a `@Published` property runs before the property stores
+  the new value. When the sink reads the owner's state (for example
+  `jobManager.jobs`), add `.receive(on: DispatchQueue.main)` and test that
+  the sink sees the new value.
+- Never relaunch for an update while a `JobManager` job runs. Route the
+  decision through `UpdateInstallGate`.
 
 ### Architecture
 
@@ -166,6 +177,21 @@ locally installed tart CLI
 `TartManager` MUST remain thin plumbing. All tart CLI interaction belongs in
 `TartClient`; policies, validation, race reconciliation, and job bodies belong
 in tested TartKit types. The app target MUST NOT spawn a process directly.
+
+The in-app updater has two documented exceptions:
+
+- Sparkle starts its own `Autoupdate` installer process. The app target
+  still starts no process itself.
+- Sparkle shows its own update and error alerts. They are not tart process
+  failures, so they do not go through `TartErrorAnalyzer` or
+  `ErrorReportSheet`. Log every updater outcome to the `updates` category.
+
+Only `Sources/TartManager/UpdateController.swift` may
+import Sparkle. Keep updater state and decisions in TartKit
+(`UpdateStatus`, `UpdateInstallGate`, `UpdaterBundleConfiguration`), and
+reach the controller from `AppModel` only through the `AppUpdating`
+protocol, so tests inject a fake and never start Sparkle. TartKit never
+imports Sparkle.
 
 Route subprocess failures through `TartClientError` and `TartErrorAnalyzer`
 into `TartOperationError`, then present them via `AppModel.present(_:)` and
@@ -209,7 +235,7 @@ environment.
   `suspend`, `errorReporting`, `TartClient`, `resources`, `clone`,
   `importJob`, `importCleanup`, `overcommit`, `snapshot`, `restore`,
   `createJob`, `createCleanup`, `deleteVM`, `rename`, `replaceDisk`,
-  `registries`, `sharedFolders`, `icon`, and `clipboard`.
+  `registries`, `sharedFolders`, `icon`, `clipboard`, and `updates`.
 - Scrub registry credentials before errors, logs, sheets, or the clipboard
   receive them with `RegistryCredentialScrubber`. Shared-folder logs may record
   only counts and mount tags.
@@ -228,6 +254,10 @@ environment.
 - Keep tests hermetic. Use `StubBinary` for fake tart executables,
   `VMStorageFixture` for storage layouts, injected closures for collaborators,
   and isolated `UserDefaults(suiteName:)` instances for preferences.
+- Read a stub's capture file through `CaptureFile.waitForLines(atPath:count:)`
+  with the number of lines the stub writes. Do not poll only
+  `FileManager.fileExists`: the shell creates the file before it writes the
+  line, so the read can see an empty file.
 - Use `JobManager.awaitIdle` to wait for jobs. Capture a real tart stderr
   fixture only when an analyzer signature requires it.
 - Add tests for failure, validation, and reconciliation paths as well as happy
@@ -237,6 +267,10 @@ environment.
 
 - Keep the package dependency-free unless a standard-library or platform API
   cannot solve a substantial need.
+- Sparkle `2.10.0` is the only dependency. It is pinned with `exact:` because
+  a safe self-replacing updater (EdDSA verification, atomic replace, and
+  relaunch) is a substantial need that platform APIs do not solve. Commit
+  `Package.resolved` with every change to the pin.
 - If a dependency becomes necessary, use a reputable, actively maintained
   source; pin its version explicitly and verify the latest stable version in
   its registry before adding it.
@@ -252,6 +286,18 @@ environment.
 - Treat registry credentials and notarization environment variables as secrets:
   never hardcode, log, or persist them outside the operating system's intended
   credential facilities.
+- Sparkle owns the `SUEnableAutomaticChecks`, `SULastCheckTime`, and
+  `SUSkippedVersion` preference keys. Do not add duplicate keys to
+  `AppSettings`; read and write them through `SPUUpdater` in
+  `UpdateController`.
+- The EdDSA private key stays in the maintainer's login Keychain and an
+  offline backup. Never read, export, print, or commit it, and never put it
+  in CI. Only the public key (`SPARKLE_PUBLIC_ED_KEY` in
+  `Scripts/package.sh`) enters the repository.
+- Never sign an ad-hoc build with `--options runtime`: Library Validation
+  then refuses the ad-hoc `Sparkle.framework`. Sign nested code inside-out
+  (`Autoupdate`, `Updater.app`, `Sparkle.framework`, then the app) and never
+  use `codesign --deep`.
 - Keep user features in `README.md`, contributor procedures in
   `Docs/DEVELOPMENT.md`, and packaging or operations details in
   `Docs/DEPLOYMENT.md`.

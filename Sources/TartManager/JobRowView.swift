@@ -2,6 +2,8 @@ import SwiftUI
 import Combine
 import TartKit
 
+/// One job in the sidebar "JOBS" section. The section lists only running
+/// and failed jobs (`JobRetentionPolicy.isListed`).
 struct JobRowView: View {
     @ObservedObject var jobManager: JobManager
     @EnvironmentObject var model: AppModel
@@ -28,118 +30,91 @@ struct JobRowView: View {
 
     var body: some View {
         if let job {
-            HStack {
-                phaseIcon(job)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title(job))
-                    detail(job)
-                    if job.phase == .completed, let summary = job.summary {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
+            let copy = JobRowCopy(job: job, now: now)
+            HStack(alignment: .top, spacing: 8) {
+                phaseIcon(job).frame(width: 16, height: 16)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(copy.title)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WorkspaceStyle.text)
+                        .lineLimit(1).truncationMode(.tail)
+                    caption(job, copy: copy)
+                    if job.phase == .running, let fraction = job.progress?.fraction {
+                        progressBar(fraction)
                     }
                 }
-                Spacer()
+                Spacer(minLength: 0)
                 actions(job)
             }
-            .padding(.vertical, 2)
-            .onReceive(ticker) { _ in now = Date() }
-        }
-    }
-
-    private func phaseIcon(_ job: JobInfo) -> some View {
-        Group {
-            if job.phase == .running {
-                ProgressView().controlSize(.small)
-            } else if job.phase == .failed {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            } else if job.phase == .cancelled {
-                Image(systemName: "xmark.circle").foregroundStyle(.secondary)
-            } else {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.secondary)
-            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .help(copy.title)
+            .onReceive(ticker) { now = $0 }
         }
     }
 
     @ViewBuilder
-    private func detail(_ job: JobInfo) -> some View {
+    private func phaseIcon(_ job: JobInfo) -> some View {
         switch job.phase {
         case .running:
-            if let fraction = job.progress?.fraction {
-                ProgressView(value: fraction)
-                Text("\(Int(fraction * 100))%\(job.progress?.note.map { " · \($0)" } ?? "") · \(elapsed(job))s")
-            } else {
-                // Indeterminate jobs (local clones: instant CoW on APFS,
-                // silent full copies on exFAT) show the note plus elapsed
-                // seconds — matching Task 8 Step 1's expectation (finding 9).
-                Text("\(job.progress?.note ?? "preparing…") · \(elapsed(job))s")
-            }
+            ProgressView().controlSize(.mini)
         case .failed:
-            if let error = job.error {
-                Text(error.message).foregroundStyle(.red).lineLimit(2)
-            }
-        case .completed:
-            Text(job.progress?.note ?? "done")
-        case .cancelled:
-            Text("cancelled")
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11)).foregroundStyle(WorkspaceStyle.warning)
+        case .completed, .cancelled:
+            EmptyView()   // not listed
         }
+    }
+
+    @ViewBuilder
+    private func caption(_ job: JobInfo, copy: JobRowCopy) -> some View {
+        HStack(spacing: 6) {
+            Text(copy.caption)
+                .foregroundStyle(job.phase == .failed ? WorkspaceStyle.warning : WorkspaceStyle.muted)
+                .lineLimit(1).truncationMode(.tail)
+            if job.phase == .failed, let error = job.error {
+                Button(JobRowCopy.detailsLabel) { model.present(error) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(WorkspaceStyle.accent)
+            }
+        }
+        .font(.system(size: 11))
+    }
+
+    private func progressBar(_ fraction: Double) -> some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(WorkspaceStyle.line)
+                Capsule().fill(WorkspaceStyle.accent)
+                    .frame(width: proxy.size.width * min(max(fraction, 0), 1))
+            }
+        }
+        .frame(height: 3)
     }
 
     @ViewBuilder
     private func actions(_ job: JobInfo) -> some View {
-        if job.phase == .running {
-            // Restore jobs are not cancellable — no Cancel affordance is
-            // rendered for them.
-            if job.kind.isCancellable {
-                Button {
-                    jobManager.cancel(id: job.id)
-                } label: {
-                    Label("Cancel", systemImage: "xmark.circle")
-                }
-                .buttonStyle(.borderless)
-            }
-        } else {
-            Button("Details") { if let error = job.error { model.present(error) } }
-                .buttonStyle(.borderless)
-                .opacity(job.error == nil ? 0 : 1)
-            Button {
-                jobManager.dismiss(id: job.id)
-            } label: {
-                Label("Dismiss", systemImage: "trash")
-            }
-            .buttonStyle(.borderless)
+        switch job.phase {
+        case .running where job.kind.isCancellable:
+            // Restore, delete, and replace-disk jobs are not cancellable:
+            // no Cancel affordance is rendered for them.
+            iconButton(JobRowCopy.cancelLabel) { jobManager.cancel(id: job.id) }
+        case .failed:
+            iconButton(JobRowCopy.dismissLabel) { jobManager.dismiss(id: job.id) }
+        default:
+            EmptyView()
         }
     }
 
-    private func elapsed(_ job: JobInfo) -> Int {
-        max(0, Int(now.timeIntervalSince(job.createdAt)))
-    }
-
-    private func title(_ job: JobInfo) -> String {
-        switch job.kind {
-        case .clone(let name, let source):
-            return "Creating “\(name)” from \(shortSource(source))"
-        case .importArchive(let name, let path):
-            return "Importing “\(name)” from \((path as NSString).lastPathComponent)"
-        case .exportSnapshot(let name):
-            return "Snapshotting “\(name)”"
-        case .restoreSnapshot(let name):
-            return "Restoring “\(name)” from a snapshot"
-        case .createFromIPSW(let name):
-            return "Installing “\(name)” from an IPSW"
-        case .deleteVM(let name):
-            return "Deleting “\(name)”"
-        case .replaceDisk(let name, _):
-            return "Replacing the disk of “\(name)”"
-        case .prune:
-            return "Pruning caches"
+    private func iconButton(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(WorkspaceStyle.muted)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
         }
-    }
-
-    private func shortSource(_ source: String) -> String {
-        source.hasPrefix("ghcr.io/cirruslabs/")
-            ? String(source.dropFirst("ghcr.io/cirruslabs/".count))
-            : source
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .help(label)
     }
 }

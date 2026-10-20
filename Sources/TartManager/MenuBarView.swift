@@ -19,6 +19,12 @@ struct MenuBarView: View {
         }
         .disabled(!canControlVMs)
         Divider()
+        if UpdateStatusCopy(status: model.updateStatus).showsMenuBarItem {
+            Button(UpdateStatusCopy.menuBarItemLabel) {
+                model.checkForUpdates()
+            }
+            Divider()
+        }
         SettingsLink {
             Text("Settings…")
         }

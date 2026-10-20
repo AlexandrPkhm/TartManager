@@ -31,13 +31,7 @@ import Foundation
         }
         // The stub needs a moment to be scheduled and write its captures;
         // poll instead of racing the read.
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n").map(String.init)
+        let lines = CaptureFile.waitForLines(atPath: invocationFile, count: 2)
         #expect(lines.contains(storagePath))
         #expect(lines.contains("run --suspendable vm-a"))
     }
@@ -62,13 +56,7 @@ import Foundation
             handle.process.terminate()
             handle.process.waitUntilExit()
         }
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n").map(String.init)
+        let lines = CaptureFile.waitForLines(atPath: invocationFile, count: 1)
         #expect(lines.contains("run vm-a"))
         #expect(!lines.contains("run --suspendable vm-a"))
     }
@@ -93,13 +81,7 @@ import Foundation
             handle.process.terminate()
             handle.process.waitUntilExit()
         }
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n").map(String.init)
+        let lines = CaptureFile.waitForLines(atPath: invocationFile, count: 1)
         #expect(lines.contains("run vm-a"))
     }
 
@@ -177,13 +159,7 @@ import Foundation
         }
         // The stale socket is removed before the child spawns.
         #expect(!FileManager.default.fileExists(atPath: staleSocket))
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: invocationFile),
-              Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        let lines = try String(contentsOfFile: invocationFile, encoding: .utf8)
-            .split(separator: "\n").map(String.init)
+        let lines = CaptureFile.waitForLines(atPath: invocationFile, count: 2)
         // The child runs from the VM's own directory, per-VM isolated.
         #expect(lines.contains(vmDirPath))
         #expect(lines.contains("run --suspendable vm-a"))

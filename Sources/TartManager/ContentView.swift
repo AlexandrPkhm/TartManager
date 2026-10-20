@@ -140,6 +140,7 @@ struct ContentView: View {
     private var titlebar: some View {
         HStack(spacing: 9) {
             Text("Tart Manager").font(.system(size: 16, weight: .semibold)).tracking(-0.2)
+            TitlebarUpdateButton()
             Spacer()
             Menu {
                 AppearancePicker()

@@ -16,6 +16,10 @@ here.
 
 - [Deployment Model](#deployment-model)
 - [Packaging](#packaging)
+- [In-App Updates](#in-app-updates)
+    - [Signing key](#signing-key)
+    - [Release procedure](#release-procedure)
+    - [Key loss and key leak](#key-loss-and-key-leak)
 - [Infrastructure Dependencies](#infrastructure-dependencies)
   - [Operating system](#operating-system)
   - [tart CLI](#tart-cli)
@@ -53,12 +57,14 @@ prerequisite on the target machine (see [Infrastructure
 Dependencies](#infrastructure-dependencies)).
 
 The flow has four stages: release build, bundle assembly, code signing, and
-DMG creation. The repository ships `Scripts/package.sh`, which automates all
-of them:
+DMG creation. An optional fifth stage writes the signed update feed (see
+[In-App Updates](#in-app-updates)). The repository ships
+`Scripts/package.sh`, which automates all of them:
 
 ```sh
 Scripts/package.sh                    # ad-hoc signed; version = latest git tag (or 1.0.0)
 Scripts/package.sh --version 1.2.3    # stamp a specific version
+Scripts/package.sh --version 1.2.3 --appcast   # also write dist/updates/
 Scripts/package.sh --sign "Developer ID Application: Jane Doe (TEAM123)" --notarize
 Scripts/package.sh --skip-build       # re-use the existing release binary
 ```
@@ -87,9 +93,15 @@ Create the standard macOS bundle layout and populate it:
 
 ```sh
 APP="dist/Tart Manager.app"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+BIN="$(swift build -c release --show-bin-path)"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 
-cp "$(swift build -c release --show-bin-path)/TartManager" "$APP/Contents/MacOS/TartManager"
+cp "$BIN/TartManager" "$APP/Contents/MacOS/TartManager"
+ditto "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices" \
+    "$APP/Contents/Frameworks/Sparkle.framework/XPCServices"
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+    "$APP/Contents/MacOS/TartManager"
 xcrun actool Assets/AppIcon.icon \
     --compile "$APP/Contents/Resources" \
     --app-icon AppIcon --include-all-app-icons \
@@ -103,6 +115,24 @@ a native light-gray background. Compilation produces `Assets.car` for system
 appearance variants and `AppIcon.icns` for compatibility. Keep both files.
 Packaged launches preserve the system-rendered Dock icon; bare `swift run`
 launches use `Sources/TartManager/Resources/AppIcon.icns` as a static fallback.
+
+`Sparkle.framework` is the in-app updater. SwiftPM puts it next to the
+release binary. Tart Manager is not sandboxed, so the bundle does not keep
+Sparkle's XPC services. The release binary has no rpath to
+`Contents/Frameworks`, so `install_name_tool` adds one. The finished bundle
+layout is:
+
+```text
+Tart Manager.app/Contents/
+├── Info.plist
+├── MacOS/TartManager
+├── Frameworks/Sparkle.framework/Versions/B/
+│   ├── Sparkle
+│   ├── Autoupdate
+│   ├── Updater.app
+│   └── Resources/
+└── Resources/              # Assets.car, AppIcon.icns
+```
 
 Write `dist/Tart Manager.app/Contents/Info.plist`:
 
@@ -118,10 +148,15 @@ Write `dist/Tart Manager.app/Contents/Info.plist`:
     <key>CFBundleName</key>             <string>TartManager</string>
     <key>CFBundleDisplayName</key>      <string>Tart Manager</string>
     <key>CFBundlePackageType</key>      <string>APPL</string>
-    <key>CFBundleShortVersionString</key> <string>1.0.0</string>
-    <key>CFBundleVersion</key>          <string>1</string>
+    <key>CFBundleShortVersionString</key> <string>1.2.0</string>
+    <key>CFBundleVersion</key>          <string>1.2.0</string>
     <key>LSMinimumSystemVersion</key>   <string>14.0</string>
     <key>NSHighResolutionCapable</key>  <true/>
+    <key>SUFeedURL</key>                <string>https://github.com/AlexandrPkhm/TartManager/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>            <string>fji7wp6SDYVkEnj4+Fv8kN6J+6NrtSAr1w10K1zHzdA=</string>
+    <key>SUEnableAutomaticChecks</key>  <true/>
+    <key>SUEnableSystemProfiling</key>  <false/>
+    <key>SUScheduledCheckInterval</key> <integer>86400</integer>
 </dict>
 </plist>
 ```
@@ -129,7 +164,14 @@ Write `dist/Tart Manager.app/Contents/Info.plist`:
 The packaging script merges the icon compiler's partial Info.plist into the
 app's Info.plist so both icon keys stay in sync with the compiled asset.
 
-Set the two version keys to the release version being packaged. **The
+Set both version keys to the release version being packaged, for example
+`1.2.0`. Sparkle compares `CFBundleVersion` with `sparkle:version` in the
+feed, so `CFBundleVersion` must equal `CFBundleShortVersionString`. Releases
+before 1.2.0 used `CFBundleVersion` `1`.
+
+The `SU*` keys configure Sparkle: the feed URL, the EdDSA public key that
+verifies every update, a daily automatic check that is on by default, and no
+system profile. **The
 `CFBundleIdentifier` must remain `TartManager`** (not reverse-DNS): all
 settings persist in the `TartManager` defaults domain (see [Configuration
 and Persistence](#configuration-and-persistence)), which is the domain the
@@ -140,22 +182,34 @@ previously ran the bare binary.
 
 ### Code signing
 
-Sign the bundle before creating the DMG:
+Sign the nested Sparkle code from the inside out, then the bundle, and
+verify the result:
 
 ```sh
+F="dist/Tart Manager.app/Contents/Frameworks/Sparkle.framework"
+codesign --force --sign - "$F/Versions/B/Autoupdate"
+codesign --force --sign - "$F/Versions/B/Updater.app"
+codesign --force --sign - "$F"
 codesign --force --sign - "dist/Tart Manager.app"
+codesign --verify --strict --verbose=2 "dist/Tart Manager.app"
 ```
 
-`-` selects ad-hoc signing, which is sufficient for the developer's own
-machine. For distribution to others, sign with a Developer ID certificate
-and the hardened runtime instead:
+`-` selects ad-hoc signing. Do not use `codesign --deep`: it signs nested
+code in an unspecified order and with the wrong options. Do not add
+`--options runtime` to an ad-hoc build: Library Validation in the hardened
+runtime refuses the ad-hoc `Sparkle.framework`, and the app crashes at
+launch.
+
+For distribution with a Developer ID certificate, sign the same four paths in
+the same order with the hardened runtime:
 
 ```sh
 codesign --force --options runtime --timestamp \
-  --sign "Developer ID Application: <your identity>" "dist/Tart Manager.app"
+  --sign "Developer ID Application: <your identity>" "<path>"
 ```
 
-This requires a paid Apple Developer account.
+This requires a paid Apple Developer account. The EdDSA key does not change
+when you move to Developer ID, so in-app updates continue to work.
 
 ### DMG creation
 
@@ -174,9 +228,12 @@ drag-install.
 ### Distribution notes
 
 - **Gatekeeper.** Ad-hoc or unsigned builds are blocked as an "unidentified
-  developer" on other machines; recipients must right-click → Open or run
-  `xattr -cr "/Applications/Tart Manager.app"`. For a warning-free install,
-  use Developer ID signing plus notarization.
+  developer" on other machines. On the first install, recipients open
+  **System Settings** → **Privacy & Security** and click **Open Anyway**
+  (macOS 15 and later), Control-click → **Open** (macOS 14), or run
+  `xattr -cr "/Applications/Tart Manager.app"`. In-app updates download with
+  no quarantine attribute, so they open with no warning. For a warning-free
+  first install, use Developer ID signing plus notarization.
 - **Notarization.** With the Developer ID-signed app, notarize the finished
   DMG (not the app) and staple the ticket. Create a Keychain profile from an
   App Store Connect API key, then use that profile for submission:
@@ -197,6 +254,87 @@ drag-install.
 - **`tart` prerequisite.** The DMG never bundles `tart`. Target machines
   must install it first (`brew install cirruslabs/cli/tart`); otherwise the
   app shows its remediation banner at launch.
+
+## In-App Updates
+
+Tart Manager uses [Sparkle](https://sparkle-project.org) 2.10.0 to update
+itself. The app reads the feed at
+`https://github.com/AlexandrPkhm/TartManager/releases/latest/download/appcast.xml`,
+a release asset of the latest GitHub release. The feed lists only the latest
+release, and the DMG is both the first-install file and the update archive.
+
+Without Apple signing, the only trust anchor for an update is an EdDSA
+(Ed25519) signature. `generate_appcast` signs the DMG with the private key,
+and the app verifies it with `SUPublicEDKey`. Sparkle refuses an archive that
+does not match.
+
+### Signing key
+
+The Sparkle tools are in `.build/artifacts/sparkle/Sparkle/bin/` after
+`swift build`. Create the key pair one time, on the maintainer's Mac:
+
+```sh
+.build/artifacts/sparkle/Sparkle/bin/generate_keys
+```
+
+`generate_keys` saves the private key in the login Keychain and prints the
+public key. Put the public key in `SPARKLE_PUBLIC_ED_KEY` in
+`Scripts/package.sh`. To print it again, run `generate_keys -p`.
+
+Back up the private key offline, for example in a password manager, then
+delete the export file:
+
+```sh
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -x tartmanager-sparkle-private-key
+```
+
+> **Warning:** Never commit the private key, store it in CI, or send it to
+> another person. Anyone with the key can sign an update that every user
+> installs.
+
+### Release procedure
+
+1. Move the `## Unreleased` entries in `CHANGELOG.md` to a `## X.Y.Z - DATE`
+   section. The script uses that section as the release notes.
+2. Build, sign, and write the feed:
+
+   ```sh
+   Scripts/package.sh --version X.Y.Z --appcast
+   ```
+
+   macOS asks for access to the signing key in the login Keychain.
+   `--appcast` writes `dist/updates/` from an empty folder: the DMG,
+   `TartManager-X.Y.Z.md` with the release notes, and `appcast.xml`. The
+   download URL prefix is
+   `https://github.com/AlexandrPkhm/TartManager/releases/download/vX.Y.Z/`.
+   The script fails when the CHANGELOG section is missing or empty, or when
+   `appcast.xml` has no `sparkle:edSignature`.
+3. Open the packaged app one time, to check that it launches.
+4. Publish the release:
+
+   ```sh
+   gh release create vX.Y.Z dist/TartManager-X.Y.Z.dmg dist/updates/appcast.xml --notes-file dist/updates/TartManager-X.Y.Z.md
+   ```
+
+The tag must be `vX.Y.Z`, because the feed's download URL contains it. Users
+on 1.0.0 and 1.1.0 have no updater and must install 1.2.0 by hand.
+
+### Key loss and key leak
+
+- **Key loss.** Without the private key, you cannot sign updates, and
+  installed apps refuse any update with another key. Restore the key from the
+  offline backup with `generate_keys -f <file>`. If no backup exists, create
+  a new key pair, ship a release with the new public key, and tell users to
+  install it by hand from the DMG.
+- **Key leak.** An attacker with the key and control of the feed can sign
+  updates that every user installs, and there is no revocation. Immediately
+  create a new key pair, ship a release with the new public key, and announce
+  the leak with instructions to install that release by hand from the DMG.
+  Then remove the old key from the Keychain.
+
+Sparkle accepts an update with a new public key only when the Apple code
+signatures of the old and new app match. Ad-hoc builds have no stable
+signing identity, so plan for a manual install after any key change.
 
 ## Infrastructure Dependencies
 
@@ -285,6 +423,11 @@ All settings persist in `UserDefaults` under the app's bundle domain
 | `vmSharedFolders` | JSON-encoded map of VM name → host folder shares | Empty map by default |
 | `firstRunReminderVMNames` | VM names for first-run reminders | Empty list |
 
+Sparkle owns its own keys in the same domain: `SUEnableAutomaticChecks` (the
+**Check for updates automatically** setting; it overrides the `Info.plist`
+default), `SULastCheckTime`, and `SUSkippedVersion`. Tart Manager adds no
+update preference keys of its own.
+
 Reset a key on a deployed machine with `defaults delete TartManager <key>`.
 
 ### Pre-seeding for managed rollout
@@ -303,8 +446,8 @@ app will show the storage-unavailable state.
 ## External Integrations
 
 Tart Manager has no OAuth, API keys, or webhooks, and it owns no network
-endpoints. The only external system it talks to — through the `tart` CLI — is
-OCI container registries.
+endpoints. It talks to two external systems: OCI container registries,
+through the `tart` CLI, and GitHub Releases, for in-app updates.
 
 ### OCI container registries
 
@@ -329,7 +472,11 @@ Production machines must allow outbound HTTPS from the `tart` process to:
 - IPSW restore-image endpoints, when VMs are created from IPSW (`tart create
   --from-ipsw`)
 
-All such traffic is initiated by the tart CLI, not by the app binary.
+The tart CLI starts that traffic. The app itself connects only to GitHub for
+updates: `github.com` and the release-asset download host it redirects to
+(`release-assets.githubusercontent.com` or `objects.githubusercontent.com`).
+Update checks send no system profile; GitHub receives the IP address and the
+user agent.
 
 ## Error Reporting
 
@@ -367,7 +514,8 @@ no log files of its own.
 - **Categories**: `storage`, `settings`, `stop`, `suspend`, `errorReporting`,
   `TartClient`, `resources`, `clone`, `importJob`, `importCleanup`,
   `overcommit`, `snapshot`, `restore`, `createJob`, `createCleanup`,
-  `deleteVM`, `rename`, `replaceDisk`, `registries`, `sharedFolders`, `icon`.
+  `deleteVM`, `rename`, `replaceDisk`, `registries`, `sharedFolders`, `icon`,
+  `clipboard`, `updates`.
 - **Levels**: call sites use `notice`, `info`, `debug`, `warning`, and
   `error`; there is no runtime level switch in the app. To enable
   debug-level output on a production machine for triage:
@@ -388,6 +536,7 @@ log stream --predicate 'subsystem == "app.TartManager"'
 # Per-category examples
 log stream --predicate 'subsystem == "app.TartManager" AND category == "stop"'
 log stream --predicate 'subsystem == "app.TartManager" AND category == "registries"'
+log stream --predicate 'subsystem == "app.TartManager" AND category == "updates"'
 ```
 
 ### Child-process output
