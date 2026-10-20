@@ -42,7 +42,7 @@ import Foundation
         let presentation = JobListPresentation(jobs: jobs, isExpanded: false)
         #expect(names(presentation) == ["a", "b"])
         #expect(presentation.toggleLabel == "Show 2 more jobs")
-        #expect(presentation.toggleSymbol == "chevron.down")
+        #expect(presentation.toggleSymbol == "chevron.up")
     }
 
     @Test func expandedListShowsAllJobsAndFlipsTheChevron() {
@@ -50,7 +50,7 @@ import Foundation
         let presentation = JobListPresentation(jobs: jobs, isExpanded: true)
         #expect(names(presentation) == ["a", "b", "c"])
         #expect(presentation.toggleLabel == "Show fewer jobs")
-        #expect(presentation.toggleSymbol == "chevron.up")
+        #expect(presentation.toggleSymbol == "chevron.down")
     }
 
     @Test func oneHiddenJobUsesTheSingular() {

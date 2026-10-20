@@ -14,7 +14,7 @@ struct JobListPresentation: Equatable {
     /// listed jobs fit in the collapsed list.
     let toggleLabel: String?
     /// The SF Symbol for the toggle chevron, or nil with no toggle.
-    /// The collapsed list shows a down chevron, the expanded list an up chevron.
+    /// The collapsed list shows `^` (expand), the expanded list a down chevron.
     let toggleSymbol: String?
 
     /// `jobs` is the full `JobManager.jobs` array. Completed and cancelled
@@ -29,11 +29,11 @@ struct JobListPresentation: Equatable {
         } else if isExpanded {
             visibleJobs = listed
             toggleLabel = "Show fewer jobs"
-            toggleSymbol = "chevron.up"
+            toggleSymbol = "chevron.down"
         } else {
             visibleJobs = Array(listed.prefix(Self.collapsedLimit))
             toggleLabel = "Show \(hidden) more \(hidden == 1 ? "job" : "jobs")"
-            toggleSymbol = "chevron.down"
+            toggleSymbol = "chevron.up"
         }
     }
 

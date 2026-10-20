@@ -10,9 +10,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Added a **Jobs** section to the main-window sidebar that shows the progress
-  of each running job, cancels clone, import, export, create, and cache-cleanup
-  jobs, and keeps failed jobs with a link to the error details.
+- Added a **Jobs** section at the bottom of the main-window sidebar that shows
+  the progress of each running job, cancels clone, import, export, create, and
+  cache-cleanup jobs, and keeps failed jobs with a link to the error details.
 
 ## 1.1.0 - 2026-10-20
 
