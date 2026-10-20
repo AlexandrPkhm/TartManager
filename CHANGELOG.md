@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Fixed
+
+- Fixed the Dock icon so that a click opens the main window again after the
+  window was closed and Tart Manager was in menu-bar-only mode.
+- Fixed the Dock icon so that it stays when one of two main windows closes.
+
 ## 1.2.0 - 2026-10-20
 
 ### Added

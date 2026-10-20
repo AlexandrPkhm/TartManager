@@ -69,4 +69,7 @@ public extension Logger {
     /// postponements, installs, and refusals. Feed URLs and versions are
     /// public.
     static let updates = Logger(subsystem: "app.TartManager", category: "updates")
+    /// Main-window and Dock lifecycle: open-window counts, activation-policy
+    /// changes, Dock reopen decisions, and reopen failures.
+    static let window = Logger(subsystem: "app.TartManager", category: "window")
 }

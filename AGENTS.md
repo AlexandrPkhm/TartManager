@@ -140,6 +140,10 @@ virtualization.
   the sink sees the new value.
 - Never relaunch for an update while a `JobManager` job runs. Route the
   decision through `UpdateInstallGate`.
+- Route Dock-icon and main-window decisions through
+  `ApplicationActivationPolicy`. It counts open main windows; do not use
+  AppKit's `hasVisibleWindows`, which is `true` when only Settings is open.
+  `AppDelegate` owns the one policy instance.
 
 ### Architecture
 
@@ -237,7 +241,8 @@ environment.
   `suspend`, `errorReporting`, `TartClient`, `resources`, `clone`,
   `importJob`, `importCleanup`, `overcommit`, `snapshot`, `restore`,
   `createJob`, `createCleanup`, `deleteVM`, `rename`, `replaceDisk`,
-  `registries`, `sharedFolders`, `icon`, `clipboard`, and `updates`.
+  `registries`, `sharedFolders`, `icon`, `clipboard`, `updates`, and
+  `window`.
 - Scrub registry credentials before errors, logs, sheets, or the clipboard
   receive them with `RegistryCredentialScrubber`. Shared-folder logs may record
   only counts and mount tags.

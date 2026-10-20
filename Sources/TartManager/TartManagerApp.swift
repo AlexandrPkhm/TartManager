@@ -4,7 +4,10 @@ import SwiftUI
 struct TartManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
-    @State private var applicationActivationPolicy = ApplicationActivationPolicy()
+
+    private var applicationActivationPolicy: ApplicationActivationPolicy {
+        appDelegate.applicationActivationPolicy
+    }
 
     var body: some Scene {
         WindowGroup(id: ApplicationActivationPolicy.mainWindowSceneID) {
@@ -25,8 +28,7 @@ struct TartManagerApp: App {
             MenuBarView(applicationActivationPolicy: applicationActivationPolicy)
                 .environmentObject(model)
         } label: {
-            Image(nsImage: MenuBarIcon.image)
-                .accessibilityLabel("Tart Manager")
+            MenuBarLabel(applicationActivationPolicy: applicationActivationPolicy)
         }
         .menuBarExtraStyle(.menu)
         Settings {
