@@ -19,7 +19,7 @@
 ## Project Overview
 
 Tart Manager is a native macOS control center for locally installed
-[`tart`](https://github.com/cirruslabs/tart) virtual machines. It lets people
+[`tart`](https://github.com/openai/tart) virtual machines. It lets people
 list, run, stop, suspend, configure, create, clone, and snapshot VMs without
 using the terminal. The application wraps the `tart` CLI; it does not implement
 virtualization.

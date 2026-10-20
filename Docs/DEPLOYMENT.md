@@ -1,7 +1,7 @@
 # Deployment
 
 Tart Manager is a native macOS application deployed to end-user machines — a
-GUI control center for the [tart](https://github.com/cirruslabs/tart) CLI. It
+GUI control center for the [tart](https://github.com/openai/tart) CLI. It
 has no server-side components, no containers, and no cloud services of its
 own. "Deployment" therefore means installing and configuring the app and its
 prerequisites on each Mac that will manage VMs.

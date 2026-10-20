@@ -1,7 +1,7 @@
 # Tart Manager
 
 Tart Manager is a native macOS control center for people who run
-[tart](https://github.com/cirruslabs/tart) virtual machines and want to
+[tart](https://github.com/openai/tart) virtual machines and want to
 manage them without the terminal.
 
 Run, stop, suspend, configure, create, and maintain your local tart VMs from
@@ -35,7 +35,7 @@ inventory a macOS interface.
 ## Requirements
 
 - macOS 14 (Sonoma) or later on an Apple silicon (ARM64) Mac.
-- [tart](https://github.com/cirruslabs/tart) 2.0.0 or later. Tart Manager
+- [tart](https://github.com/openai/tart) 2.0.0 or later. Tart Manager
   does not bundle tart.
 
 Install tart with Homebrew:
