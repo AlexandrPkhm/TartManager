@@ -1,4 +1,14 @@
-# Tart Manager
+<p align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="Assets/Logo-dark.svg">
+    <img
+      src="Assets/Logo-light.svg"
+      alt="Tart Manager"
+      width="300">
+  </picture>
+</p>
 
 Tart Manager is a native macOS control center for people who run
 [tart](https://github.com/openai/tart) virtual machines and want to
@@ -11,7 +21,7 @@ inventory a macOS interface.
 <p align="center">
   <img
     src="Assets/TartManager.png"
-    alt="Tart Manager showing local virtual machines and storage settings"
+    alt="Tart Manager showing a VM overview and the About settings with update checks"
     width="900">
 </p>
 
