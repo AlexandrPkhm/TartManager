@@ -27,6 +27,8 @@ inventory a macOS interface.
 - Configure VM resources, hardware identity, and shared folders; replace a
   stopped VM's disk when needed.
 - Create, restore, and remove snapshots before experimenting with a VM.
+- Watch clone, import, export, create, and cache-cleanup jobs in the sidebar
+  **Jobs** section, and cancel a job that you no longer need.
 - Manage registry sign-in, cache cleanup, storage location, and appearance in
   Settings.
 - Control common VM actions from the macOS menu bar while retaining the same
