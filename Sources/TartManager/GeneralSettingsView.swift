@@ -1,7 +1,8 @@
 import SwiftUI
 import TartKit
 
-/// General settings for appearance and the detail pane's SSH command.
+/// General settings for appearance, the detail pane's SSH command, and
+/// automatic update checks.
 struct GeneralSettingsView: View {
     @EnvironmentObject var model: AppModel
 
@@ -32,6 +33,16 @@ struct GeneralSettingsView: View {
                 Text("Used for the “copy ssh command” button in the VM detail pane. Defaults to admin.")
                     .font(.caption)
                     .foregroundStyle(WorkspaceStyle.muted)
+            }
+            SettingsPanel(title: "Updates") {
+                LabeledContent("Check for updates automatically") {
+                    Toggle("Check for updates automatically", isOn: Binding(
+                        get: { model.automaticUpdateChecks },
+                        set: { model.automaticUpdateChecks = $0 }))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .disabled(model.updateStatus == .unavailable)
+                }
             }
         }
     }

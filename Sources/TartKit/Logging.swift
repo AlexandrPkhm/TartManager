@@ -65,4 +65,8 @@ public extension Logger {
     /// Guest-clipboard watchdog lifecycle: guest readiness polls, agent
     /// kickstarts, watchdog installs, and every degrade decision.
     static let clipboard = Logger(subsystem: "app.TartManager", category: "clipboard")
+    /// In-app updater lifecycle: update checks, results, skips,
+    /// postponements, installs, and refusals. Feed URLs and versions are
+    /// public.
+    static let updates = Logger(subsystem: "app.TartManager", category: "updates")
 }

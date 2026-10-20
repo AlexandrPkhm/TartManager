@@ -46,8 +46,12 @@ final class AppModel: ObservableObject {
     let firstRunReminder: FirstRunReminderStore
 
     init(settings: AppSettings = AppSettings(),
-         firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard)) {
+         firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard),
+         updater: AppUpdating? = nil) {
         self.settings = settings
+        // `nil` means the real updater. A default argument cannot create it,
+        // because default arguments are not main-actor isolated.
+        self.updater = updater ?? UpdateController()
         self.appearance = settings.appearance
         NSApplication.shared.appearance = settings.appearance.nativeAppearance
         self.firstRunReminder = firstRunReminder
@@ -117,6 +121,7 @@ final class AppModel: ObservableObject {
         }
         refreshAvailability()
         rewireInventoryFetch()
+        startUpdater()
     }
 
     var requiresOnboarding: Bool { settings.storagePath == nil }
@@ -194,6 +199,59 @@ final class AppModel: ObservableObject {
     }
 
     private var cancellables = Set<AnyCancellable>()
+
+    // MARK: - Updates (thin wiring over UpdateController)
+
+    /// The Sparkle bridge. Tests inject a fake.
+    private let updater: AppUpdating
+
+    /// The updater state the title bar, the menu-bar menu, and the About
+    /// tab observe.
+    @Published private(set) var updateStatus: UpdateStatus = .idle
+
+    /// The selected Settings tab. Owned here so **About Tart Manager** and
+    /// the title-bar button can open the About tab.
+    @Published var selectedSettingsTab: SettingsTab = .general
+
+    /// Daily background checks; Sparkle persists the choice.
+    var automaticUpdateChecks: Bool {
+        get { updater.automaticallyChecksForUpdates }
+        set {
+            objectWillChange.send()
+            updater.automaticallyChecksForUpdates = newValue
+        }
+    }
+
+    /// The time of the last completed update check.
+    var lastUpdateCheck: Date? { updater.lastCheckDate }
+
+    /// A user-initiated check; Sparkle shows its window for the result.
+    func checkForUpdates() {
+        updater.checkForUpdates()
+    }
+
+    /// Selects the About tab. The caller then calls `openSettings()`.
+    func showAbout() {
+        selectedSettingsTab = .about
+    }
+
+    /// Starts the updater and, while an install waits for jobs, re-runs the
+    /// install gate on every job-list change. `@Published` emits before it
+    /// stores the new list, so the observation hops to the next main-queue
+    /// turn; the gate then reads the finished list.
+    private func startUpdater() {
+        updater.start(
+            onStatusChange: { [weak self] status in self?.updateStatus = status },
+            activeJobs: { [weak self] in self?.jobManager.jobs ?? [] })
+        jobManager.$jobs
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, case .waitingForJobs = self.updateStatus else { return }
+                self.updater.resumePostponedInstall()
+            }
+            .store(in: &cancellables)
+    }
 
     // MARK: Jobs and creation (Issue 9)
 
