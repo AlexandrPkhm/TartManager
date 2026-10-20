@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Added in-app updates: Tart Manager checks for a new version once a day,
+  shows an **Update Available** button in the title bar and an
+  **Update available…** item in the menu-bar menu, and installs a verified
+  update after running jobs finish.
+- Added the **About** tab in Settings, with the version, the update status,
+  a **Check for Updates** button, and links to GitHub and the documentation.
+- Added the **Check for updates automatically** setting to Settings →
+  General.
+
+### Changed
+
+- Changed **Tart Manager → About Tart Manager** to open Settings on the
+  **About** tab.
+- Changed `CFBundleVersion` to match the release version instead of `1`.
+
+### Removed
+
+- Removed the About sheet. The README now describes running, stopping,
+  suspending, replacing a disk, memory warnings, and pruning caches.
+
 ## 1.1.0 - 2026-10-20
 
 ### Changed

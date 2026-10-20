@@ -29,6 +29,7 @@ guidelines and architecture rules are in [`AGENTS.md`](../AGENTS.md).
   - [Adding a new setting](#adding-a-new-setting)
   - [Watching the app's logs](#watching-the-apps-logs)
   - [Resetting development state](#resetting-development-state)
+  - [Testing an in-app update locally](#testing-an-in-app-update-locally)
 - [Troubleshooting](#troubleshooting)
   - [Flaky tests in parallel mode](#flaky-tests-in-parallel-mode)
   - [Swift 5 language mode compilation limits](#swift-5-language-mode-compilation-limits)
@@ -40,9 +41,18 @@ guidelines and architecture rules are in [`AGENTS.md`](../AGENTS.md).
 
 ## Prerequisites
 
-Tart Manager is a Swift Package Manager project targeting macOS 14+. It has
-**no third-party package dependencies**, so `swift build` and `swift test`
-work offline once the toolchain is installed.
+Tart Manager is a Swift Package Manager project targeting macOS 14+. Its only
+package dependency is [Sparkle](https://github.com/sparkle-project/Sparkle)
+**2.10.0**, the in-app updater, pinned with `exact:` in `Package.swift` and
+locked in `Package.resolved`. Only the `TartManager` executable target links
+it; `TartKit` does not. The first `swift build` downloads Sparkle's binary
+framework, so it needs network access. Later builds and `swift test` work
+offline from the cache in `.build/`.
+
+To change the Sparkle version, edit the `exact:` version in `Package.swift`,
+run `swift package resolve`, and commit both files. Read the Sparkle release
+notes first, and repeat the local update test in
+[Testing an in-app update locally](#testing-an-in-app-update-locally).
 
 ### Swift toolchain and Xcode
 
@@ -104,9 +114,9 @@ placeholder — substitute your fork's URL.)
 swift build
 ```
 
-There is nothing to install: the package has no external dependencies, so
-the first build only compiles the local sources. The debug binary lands at
-`.build/debug/TartManager`.
+The first build fetches Sparkle (see [Prerequisites](#prerequisites)), then
+compiles the local sources. Find the debug binary with
+`swift build --show-bin-path`.
 
 ### Configure the environment
 
@@ -129,7 +139,10 @@ swift run
 ```
 
 `TartManager` is the only executable product, so `swift run` builds and
-launches the GUI app (a logged-in GUI session is required). To reset the
+launches the GUI app (a logged-in GUI session is required). A `swift run`
+binary has no bundle `Info.plist`, so the updater does not start: Settings →
+About shows "Updates are not available in development builds.", and the
+`updates` log category records the missing keys. To reset the
 app to its out-of-the-box state for development:
 
 ```sh
@@ -220,9 +233,9 @@ variables, registries, logging on deployed machines — is documented in
   log stream --level info --predicate 'subsystem == "app.TartManager"'
   ```
 
-  Feature-specific categories are documented in `README.md` (`stop`,
-  `suspend`, `replaceDisk`, `overcommit`, `registries`, `clipboard`, …); the
-  full category list is in `Sources/TartKit/Logging.swift`.
+  Feature-specific categories include `stop`, `suspend`, `replaceDisk`,
+  `overcommit`, `registries`, `clipboard`, and `updates`; the full category
+  list is in `Sources/TartKit/Logging.swift`.
 - Dismissed error reports remain diagnosable with the same predicate —
   every normalized failure is logged.
 
@@ -274,6 +287,49 @@ defaults delete TartManager sshUser           # reset per-key settings
 
 The `storagePath` reset is the common one: it restores the first-run
 onboarding flow without touching other preferences.
+
+### Testing an in-app update locally
+
+Use a throwaway signing key and a local feed. Never sign test builds with
+the production key, and never commit the test values.
+
+1. Create a throwaway key and print its public key:
+
+   ```sh
+   BIN=.build/artifacts/sparkle/Sparkle/bin
+   $BIN/generate_keys --account tartmanager-test
+   $BIN/generate_keys --account tartmanager-test -p
+   ```
+
+2. Package an older and a newer version, for example `1.2.0` and `1.2.1`,
+   each into its own output folder:
+
+   ```sh
+   Scripts/package.sh --version 1.2.0 -o /tmp/tm-old
+   Scripts/package.sh --version 1.2.1 -o /tmp/tm-new
+   ```
+
+3. Mount each DMG and copy **Tart Manager.app** out with `ditto`. In each
+   copy, set `SUFeedURL` to `http://127.0.0.1:8000/appcast.xml` and
+   `SUPublicEDKey` to the throwaway public key with
+   `/usr/libexec/PlistBuddy`. Then re-sign it in the order from
+   [Code signing](DEPLOYMENT.md#code-signing), and put the newer app in a new
+   DMG in the feed folder `/tmp/tm-feed`.
+4. Sign the feed and serve it:
+
+   ```sh
+   $BIN/generate_appcast --account tartmanager-test --download-url-prefix http://127.0.0.1:8000/ /tmp/tm-feed
+   python3 -m http.server 8000 --bind 127.0.0.1 --directory /tmp/tm-feed
+   ```
+
+5. Copy the older app to `/Applications` with `ditto` (no quarantine
+   attribute), open it, and click **Check for Updates** in Settings → About.
+   Sparkle installs the newer version and relaunches the app.
+6. Delete the throwaway key from the login Keychain:
+
+   ```sh
+   security delete-generic-password -s https://sparkle-project.org -a tartmanager-test
+   ```
 
 ## Troubleshooting
 
