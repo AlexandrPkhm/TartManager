@@ -11,8 +11,8 @@ enum SettingsTab: Hashable {
     /// the tab's content at the 640 pt width without scrolling.
     var frameHeight: CGFloat {
         switch self {
-        case .general: return 440
-        case .storage: return 620
+        case .general: return 740
+        case .storage: return 514
         case .about: return 320
         }
     }

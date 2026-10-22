@@ -140,6 +140,11 @@ virtualization.
   the sink sees the new value.
 - Never relaunch for an update while a `JobManager` job runs. Route the
   decision through `UpdateInstallGate`.
+- Resolve tart only through `PrerequisiteChecker.check(preference:)`, which
+  checks the bundled tart (`Contents/Helpers/tart.app`) and the installed
+  tart together. Never fall back from the selected source to the other
+  one; report the failure and offer the switch. Gate every source or
+  custom-path change with `TartSourceSwitchGate` in `AppModel`.
 
 ### Architecture
 
@@ -237,7 +242,9 @@ environment.
   `suspend`, `errorReporting`, `TartClient`, `resources`, `clone`,
   `importJob`, `importCleanup`, `overcommit`, `snapshot`, `restore`,
   `createJob`, `createCleanup`, `deleteVM`, `rename`, `replaceDisk`,
-  `registries`, `sharedFolders`, `icon`, `clipboard`, and `updates`.
+  `registries`, `sharedFolders`, `icon`, `clipboard`, `updates`, and
+  `tartRuntime`. Log tart paths in `tartRuntime` with the user home shown
+  as `~`.
 - Scrub registry credentials before errors, logs, sheets, or the clipboard
   receive them with `RegistryCredentialScrubber`. Shared-folder logs may record
   only counts and mount tags.
@@ -283,6 +290,10 @@ environment.
 
 - Keep runtime preference access in `AppSettings` and validate persisted
   storage paths before using them.
+- `tartSource` and `tartCustomPath` live in `AppSettings`. Set them only
+  through `AppModel.setTartSource(_:)`, `chooseCustomTart(path:)`, and
+  `resetCustomTart()`, which gate the change and validate the path with
+  `TartCustomPathValidator`.
 - Pass runtime command configuration through `TartCommandEnvironment`; do not
   read shell `TART_HOME` as application configuration.
 - Treat registry credentials and notarization environment variables as secrets:

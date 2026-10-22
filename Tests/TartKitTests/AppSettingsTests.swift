@@ -148,4 +148,30 @@ import Foundation
         #expect(settings.sharedFolders(for: "vm-a").isEmpty)
         #expect(settings.sharedFolders(for: "vm-b").count == 2)
     }
+    @Test func tartSourceRoundTrips() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.tartSource == nil)
+        settings.tartSource = .bundled
+        #expect(AppSettings(defaults: defaults).tartSource == .bundled)
+        settings.tartSource = nil
+        #expect(defaults.object(forKey: AppSettings.tartSourceKey) == nil)
+    }
+
+    @Test func unknownTartSourceReadsAsNil() {
+        let defaults = makeIsolatedDefaults()
+        defaults.set("homebrew", forKey: AppSettings.tartSourceKey)
+        #expect(AppSettings(defaults: defaults).tartSource == nil)
+    }
+
+    @Test func tartCustomPathRoundTrips() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.tartCustomPath == nil)
+        settings.tartCustomPath = "/opt/tools/tart"
+        #expect(AppSettings(defaults: defaults).tartCustomPath == "/opt/tools/tart")
+        settings.tartCustomPath = nil
+        #expect(settings.tartCustomPath == nil)
+        #expect(defaults.object(forKey: AppSettings.tartCustomPathKey) == nil)
+    }
 }

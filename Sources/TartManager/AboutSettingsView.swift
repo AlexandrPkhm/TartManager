@@ -31,6 +31,15 @@ struct AboutSettingsView: View {
                     Text(versionLine)
                         .foregroundStyle(WorkspaceStyle.muted)
                         .textSelection(.enabled)
+                    if let tart = model.prerequisite?.diagnosticLine {
+                        Text(verbatim: "tart: \(tart)")
+                            .font(.caption)
+                            .foregroundStyle(WorkspaceStyle.muted)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(tart)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             Text(Self.description)
