@@ -4,13 +4,16 @@
 #
 # Stages:
 #   1. Release build    swift build -c release
-#   2. Bundle assembly  assemble "Tart Manager.app" (binary, icon, Info.plist,
-#                       Sparkle.framework)
-#   3. Code signing     ad-hoc by default; --sign for a Developer ID identity.
+#   2. Bundled tart     download the tart release pinned in Scripts/tart-pin.env,
+#                       check its SHA-256, signature, and LICENSE
+#   3. Bundle assembly  assemble "Tart Manager.app" (binary, icon, Info.plist,
+#                       Sparkle.framework, the unchanged tart.app and its license)
+#   4. Code signing     ad-hoc by default; --sign for a Developer ID identity.
 #                       Nested Sparkle code is signed inside-out, never --deep.
-#   4. DMG creation     hdiutil (app + /Applications symlink)
-#   5. Notarization     optional, via --notarize (Developer ID signing required)
-#   6. Appcast          optional, via --appcast: the EdDSA-signed update feed
+#                       tart.app keeps its own Developer ID signature.
+#   5. DMG creation     hdiutil (app + /Applications symlink)
+#   6. Notarization     optional, via --notarize (Developer ID signing required)
+#   7. Appcast          optional, via --appcast: the EdDSA-signed update feed
 #                       and Markdown release notes from CHANGELOG.md
 #
 # See Docs/DEPLOYMENT.md → Packaging for the manual, step-by-step equivalent and
@@ -40,6 +43,18 @@ DOWNLOAD_URL_PREFIX_BASE="https://github.com/AlexandrPkhm/TartManager/releases/d
 PROJECT_URL="https://github.com/AlexandrPkhm/TartManager"
 SPARKLE_BIN="$ROOT/.build/artifacts/sparkle/Sparkle/bin"
 
+# Bundled tart. The pin file is the trust anchor for the download; the
+# signing team must equal BundledTartVerifier.expectedTeamIdentifier. See
+# Docs/DEPLOYMENT.md → Bundled tart.
+TART_PIN_FILE="$ROOT/Scripts/tart-pin.env"
+TART_LICENSE_REF="$ROOT/Scripts/tart-LICENSE.txt"
+TART_REPO="openai/tart"
+TART_TEAM_ID="9M2P8L4D89"
+TART_CACHE_DIR="$ROOT/.build/tart-cache"
+TART_VERSION=""
+TART_SHA256=""
+TART_EXTRACTED=""
+
 VERSION=""
 SIGN_IDENTITY=""
 NOTARIZE=false
@@ -67,6 +82,9 @@ Options:
       --skip-build        Reuse the existing release binary instead of
                           running swift build -c release.
   -o, --output DIR        Output directory for the DMG (default: dist/).
+      --tart-pin-file PATH
+                          Read the bundled tart pin from PATH
+                          (default: Scripts/tart-pin.env).
   -h, --help              Show this help.
 EOF
 }
@@ -101,6 +119,11 @@ parse_args() {
                 SKIP_BUILD=true
                 shift
                 ;;
+            --tart-pin-file)
+                [[ $# -ge 2 ]] || fail "$1 requires a value"
+                TART_PIN_FILE="$2"
+                shift 2
+                ;;
             -o|--output)
                 [[ $# -ge 2 ]] || fail "$1 requires a value"
                 OUTPUT_DIR="$2"
@@ -119,7 +142,8 @@ parse_args() {
 
 require_tools() {
     local tool
-    for tool in hdiutil codesign plutil swift xcrun install_name_tool ditto; do
+    for tool in hdiutil codesign plutil swift xcrun install_name_tool ditto \
+            gh shasum tar spctl; do
         command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
     done
     if [[ "$SKIP_BUILD" != true ]]; then
@@ -167,6 +191,7 @@ assemble_app() {
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources" "$bundle/Contents/Frameworks"
     cp "$BINARY_PATH" "$bundle/Contents/MacOS/$EXECUTABLE"
     embed_sparkle "$bundle"
+    embed_tart "$bundle"
 
     cat > "$bundle/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -224,6 +249,119 @@ embed_sparkle() {
         "$bundle/Contents/MacOS/$EXECUTABLE"
 }
 
+# Reads TART_VERSION and TART_SHA256 from TART_PIN_FILE.
+load_tart_pin() {
+    [[ -f "$TART_PIN_FILE" ]] || fail "tart pin file not found: $TART_PIN_FILE"
+    TART_VERSION=""
+    TART_SHA256=""
+    # shellcheck source=/dev/null
+    source "$TART_PIN_FILE"
+    [[ -n "$TART_VERSION" && -n "$TART_SHA256" ]] || \
+        fail "$TART_PIN_FILE must set TART_VERSION and TART_SHA256"
+    [[ "$TART_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
+        fail "TART_VERSION must look like X.Y.Z, got: $TART_VERSION"
+    [[ "$TART_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
+        fail "TART_SHA256 must be 64 lowercase hex digits"
+}
+
+sha256_of() {
+    shasum -a 256 "$1" | awk '{ print $1 }'
+}
+
+# Prints the SHA-256 that the release checksums file lists for tart.tar.gz.
+checksum_from_release() {
+    local checksums="$1"
+    awk '$2 == "tart.tar.gz" || $2 == "*tart.tar.gz" { print $1; exit }' "$checksums"
+}
+
+# Downloads tart.tar.gz and the checksums file of tart VERSION into a new,
+# empty directory and prints that directory.
+download_tart_assets() {
+    local version="$1"
+    local dir
+    dir="$(mktemp -d "$STAGING_DIR/tart-download.XXXXXX")"
+    gh release download "$version" --repo "$TART_REPO" --dir "$dir" \
+        --pattern tart.tar.gz --pattern "tart_${version}_checksums.txt" >&2 || \
+        fail "could not download tart $version from $TART_REPO"
+    echo "$dir"
+}
+
+# Fetches tart VERSION (from the cache or GitHub), checks it against SHA256 and
+# the release checksums file, and extracts it into DEST_DIR, which must be new
+# and empty. The archive holds tart.app/ and LICENSE at its root.
+fetch_tart_archive() {
+    local version="$1" sha256="$2" dest="$3"
+    local cache="$TART_CACHE_DIR/$version"
+    local archive="$cache/tart.tar.gz"
+    local checksums="$cache/tart_${version}_checksums.txt"
+
+    if [[ -f "$archive" && "$(sha256_of "$archive")" != "$sha256" ]]; then
+        echo "==> Cached tart $version does not match the pin; downloading again"
+        rm -f "$archive" "$checksums"
+    fi
+    if [[ ! -f "$archive" || ! -f "$checksums" ]]; then
+        echo "==> Downloading tart $version from $TART_REPO"
+        local download
+        download="$(download_tart_assets "$version")"
+        [[ "$(sha256_of "$download/tart.tar.gz")" == "$sha256" ]] || \
+            fail "tart $version SHA-256 does not match $TART_PIN_FILE"
+        mkdir -p "$cache"
+        mv "$download/tart.tar.gz" "$archive"
+        mv "$download/tart_${version}_checksums.txt" "$checksums"
+    else
+        echo "==> Using cached tart $version"
+    fi
+
+    [[ "$(sha256_of "$archive")" == "$sha256" ]] || \
+        fail "tart $version SHA-256 does not match $TART_PIN_FILE"
+    [[ "$(checksum_from_release "$checksums")" == "$sha256" ]] || \
+        fail "tart $version SHA-256 does not match the release checksums file"
+
+    [[ -d "$dest" && -z "$(ls -A "$dest")" ]] || \
+        fail "extraction folder must be new and empty: $dest"
+    tar -xzf "$archive" -C "$dest" || fail "could not extract tart $version"
+    [[ -x "$dest/tart.app/Contents/MacOS/tart" ]] || \
+        fail "tart $version archive has no tart.app/Contents/MacOS/tart"
+    [[ -f "$dest/LICENSE" ]] || fail "tart $version archive has no LICENSE"
+}
+
+# Checks that APP is the genuine, unchanged tart VERSION: a valid signature by
+# the Cirrus Labs team, accepted by Gatekeeper, with its provisioning profile.
+verify_tart_app() {
+    local app="$1" version="$2"
+    echo "==> Verifying tart.app $version"
+    codesign --verify --strict --verbose=2 "$app" || \
+        fail "tart.app signature verification failed"
+    codesign -dv "$app" 2>&1 | grep -qx "TeamIdentifier=$TART_TEAM_ID" || \
+        fail "tart.app is not signed by team $TART_TEAM_ID"
+    spctl --assess --type execute "$app" || \
+        fail "Gatekeeper rejects tart.app"
+    [[ "$("$app/Contents/MacOS/tart" --version)" == "$version" ]] || \
+        fail "tart.app does not report version $version"
+    [[ -f "$app/Contents/embedded.provisionprofile" ]] || \
+        fail "tart.app has no embedded.provisionprofile"
+}
+
+# Fetches and verifies the pinned tart into a new staging folder, before the
+# bundle is assembled, and records that folder in TART_EXTRACTED.
+prepare_tart() {
+    TART_EXTRACTED="$(mktemp -d "$STAGING_DIR/tart-extract.XXXXXX")"
+    fetch_tart_archive "$TART_VERSION" "$TART_SHA256" "$TART_EXTRACTED"
+    verify_tart_app "$TART_EXTRACTED/tart.app" "$TART_VERSION"
+    cmp -s "$TART_EXTRACTED/LICENSE" "$TART_LICENSE_REF" || \
+        fail "tart $TART_VERSION LICENSE differs from $TART_LICENSE_REF"
+}
+
+# Embeds the verified tart.app unchanged, with its license. The copy keeps the
+# upstream signature: nothing here or in sign_app re-signs it.
+embed_tart() {
+    local bundle="$1"
+    [[ -n "$TART_EXTRACTED" ]] || fail "embed_tart needs prepare_tart first"
+    mkdir -p "$bundle/Contents/Helpers"
+    ditto "$TART_EXTRACTED/tart.app" "$bundle/Contents/Helpers/tart.app"
+    cp "$TART_LICENSE_REF" "$bundle/Contents/Resources/tart-LICENSE.txt"
+}
+
 # Signs one path. Ad-hoc signing never uses the hardened runtime: Library
 # Validation would then refuse the ad-hoc Sparkle.framework.
 sign_path() {
@@ -236,7 +374,8 @@ sign_path() {
     fi
 }
 
-# Signs nested code inside-out, then the bundle. Never use --deep.
+# Signs nested code inside-out, then the bundle. Never use --deep, and never
+# sign Contents/Helpers/tart.app: it keeps its Developer ID signature.
 sign_app() {
     local bundle="$1"
     local framework="$bundle/Contents/Frameworks/Sparkle.framework"
@@ -251,6 +390,13 @@ sign_app() {
     sign_path "$bundle"
     codesign --verify --strict --verbose=2 "$bundle" || \
         fail "code signature verification failed for $bundle"
+
+    # Prove that signing the bundle left the nested tart.app intact.
+    local tart_app="$bundle/Contents/Helpers/tart.app"
+    codesign --verify --strict --verbose=2 "$tart_app" || \
+        fail "code signature verification failed for $tart_app"
+    codesign -dv "$tart_app" 2>&1 | grep -qx "TeamIdentifier=$TART_TEAM_ID" || \
+        fail "signing changed the team of $tart_app"
 }
 
 create_dmg() {
@@ -331,12 +477,15 @@ main() {
     parse_args "$@"
     resolve_version
     require_tools
-    build_release
+    load_tart_pin
 
     # Global (not `local`) so the EXIT trap below can still see it: `local`
     # variables of a function are out of scope once that function returns.
     STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tartmanager-package.XXXXXX")"
     trap '[[ -z "${STAGING_DIR:-}" ]] || rm -rf "$STAGING_DIR"' EXIT
+
+    build_release
+    prepare_tart
 
     local bundle="$STAGING_DIR/$APP_BUNDLE"
     assemble_app "$bundle"
@@ -346,7 +495,10 @@ main() {
     notarize_dmg "$dmg_path"
     write_appcast "$dmg_path"
 
-    echo "==> Done: $dmg_path"
+    local size_mb
+    size_mb="$(awk -v bytes="$(stat -f %z "$dmg_path")" \
+        'BEGIN { printf "%.1f", bytes / 1048576 }')"
+    echo "==> Done: $dmg_path ($size_mb MB)"
 }
 
 main "$@"
