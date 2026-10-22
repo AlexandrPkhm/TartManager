@@ -137,6 +137,8 @@ require_tools() {
 resolve_version() {
     if [[ -z "$VERSION" ]]; then
         VERSION="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
+        # Release tags are `vX.Y.Z`; the bundle version is `X.Y.Z`.
+        VERSION="${VERSION#v}"
         [[ -z "$VERSION" ]] && VERSION="$FALLBACK_VERSION"
         echo "==> No --version given; using $VERSION"
     fi
