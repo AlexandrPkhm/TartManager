@@ -36,4 +36,17 @@ import Foundation
         _ = writeTart(in: bundle, permissions: 0o644)
         #expect(BundledTartLocation.executablePath(inAppBundle: bundle) == nil)
     }
+
+    @Test func findsLicenseInsideAppBundle() {
+        let bundle = makeAppBundle()
+        let path = bundle.appendingPathComponent(BundledTartLocation.relativeLicensePath).path
+        try! FileManager.default.createDirectory(
+            atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        try! "license\n".write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(BundledTartLocation.licensePath(inAppBundle: bundle) == path)
+    }
+
+    @Test func licenseIsNilWithoutFile() {
+        #expect(BundledTartLocation.licensePath(inAppBundle: makeAppBundle()) == nil)
+    }
 }

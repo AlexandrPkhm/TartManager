@@ -13,7 +13,7 @@ enum SettingsTab: Hashable {
         switch self {
         case .general: return 740
         case .storage: return 514
-        case .about: return 320
+        case .about: return 471
         }
     }
 }

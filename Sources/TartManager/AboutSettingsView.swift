@@ -17,6 +17,13 @@ struct AboutSettingsView: View {
         return version.map { "Version \($0)" } ?? "Development build"
     }
 
+    /// A file lookup only; `TartAcknowledgementCopy` holds the tested logic.
+    private var acknowledgement: TartAcknowledgementCopy {
+        TartAcknowledgementCopy(
+            report: model.tartReport,
+            licensePath: BundledTartLocation.licensePath(inAppBundle: Bundle.main.bundleURL))
+    }
+
     var body: some View {
         let copy = UpdateStatusCopy(status: model.updateStatus)
         SettingsPage {
@@ -62,6 +69,9 @@ struct AboutSettingsView: View {
                         .accessibilityLabel("Check for Updates")
                 }
             }
+            if acknowledgement.isVisible {
+                TartAcknowledgementPanel(copy: acknowledgement)
+            }
             HStack(spacing: 16) {
                 Link("GitHub", destination: Self.gitHubURL)
                     .accessibilityLabel("Open Tart Manager on GitHub")
@@ -69,6 +79,32 @@ struct AboutSettingsView: View {
                     .accessibilityLabel("Open the Tart Manager documentation")
             }
             .foregroundStyle(WorkspaceStyle.accent)
+        }
+    }
+}
+
+/// The bundled tart's license and project link in the About tab.
+struct TartAcknowledgementPanel: View {
+    let copy: TartAcknowledgementCopy
+
+    var body: some View {
+        SettingsPanel(title: copy.title) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(copy.line)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 16) {
+                    if let licensePath = copy.licensePath {
+                        Button(copy.viewLicenseButton) {
+                            NSWorkspace.shared.open(URL(fileURLWithPath: licensePath))
+                        }
+                        .buttonStyle(WorkspaceButtonStyle())
+                        .accessibilityLabel("View the tart license")
+                    }
+                    Link(copy.gitHubLinkTitle, destination: copy.gitHubURL)
+                        .foregroundStyle(WorkspaceStyle.accent)
+                        .accessibilityLabel("Open tart on GitHub")
+                }
+            }
         }
     }
 }
