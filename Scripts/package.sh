@@ -3,6 +3,8 @@
 # package.sh — build Tart Manager and package it into a distributable DMG.
 #
 # Stages:
+#   0. Tart check       offer a newer openai/tart release; bump the pin only
+#                       after the maintainer answers y (--skip-tart-check skips)
 #   1. Release build    swift build -c release
 #   2. Bundled tart     download the tart release pinned in Scripts/tart-pin.env,
 #                       check its SHA-256, signature, and LICENSE
@@ -54,6 +56,8 @@ TART_CACHE_DIR="$ROOT/.build/tart-cache"
 TART_VERSION=""
 TART_SHA256=""
 TART_EXTRACTED=""
+SKIP_TART_CHECK=false
+CHECK_TART_ONLY=false
 
 VERSION=""
 SIGN_IDENTITY=""
@@ -82,6 +86,8 @@ Options:
       --skip-build        Reuse the existing release binary instead of
                           running swift build -c release.
   -o, --output DIR        Output directory for the DMG (default: dist/).
+      --skip-tart-check   Do not look for a newer tart release (offline builds).
+      --check-tart        Run only the tart release check, then exit.
       --tart-pin-file PATH
                           Read the bundled tart pin from PATH
                           (default: Scripts/tart-pin.env).
@@ -117,6 +123,14 @@ parse_args() {
                 ;;
             --skip-build)
                 SKIP_BUILD=true
+                shift
+                ;;
+            --skip-tart-check)
+                SKIP_TART_CHECK=true
+                shift
+                ;;
+            --check-tart)
+                CHECK_TART_ONLY=true
                 shift
                 ;;
             --tart-pin-file)
@@ -325,6 +339,96 @@ fetch_tart_archive() {
     [[ -f "$dest/LICENSE" ]] || fail "tart $version archive has no LICENSE"
 }
 
+# Prints the tag of the latest openai/tart release, or nothing on failure.
+latest_tart_tag() {
+    gh release view --repo "$TART_REPO" --json tagName --jq .tagName 2>/dev/null || true
+}
+
+# True when version A is higher than version B; both are X.Y.Z.
+version_newer() {
+    local a="$1" b="$2"
+    local a1 a2 a3 b1 b2 b3
+    IFS=. read -r a1 a2 a3 <<<"$a"
+    IFS=. read -r b1 b2 b3 <<<"$b"
+    (( 10#$a1 != 10#$b1 )) && { (( 10#$a1 > 10#$b1 )); return; }
+    (( 10#$a2 != 10#$b2 )) && { (( 10#$a2 > 10#$b2 )); return; }
+    (( 10#$a3 > 10#$b3 ))
+}
+
+# Asks QUESTION on the terminal. True only for an answer of y or Y; false
+# without a terminal, so a release build never bumps without an answer.
+confirm() {
+    local question="$1" answer=""
+    [[ -t 0 ]] || return 1
+    read -r -p "$question" answer || return 1
+    [[ "$answer" == "y" || "$answer" == "Y" ]]
+}
+
+# Offers the latest openai/tart release when it is newer than the pin.
+check_tart_release() {
+    local latest
+    latest="$(latest_tart_tag)"
+    if [[ ! "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "warning: could not read the latest $TART_REPO release; skipping the tart check" >&2
+        return
+    fi
+    echo "==> Bundled tart: pinned $TART_VERSION, latest $latest"
+    if ! version_newer "$latest" "$TART_VERSION"; then
+        echo "==> Bundled tart $TART_VERSION is current"
+        return
+    fi
+    echo "    https://github.com/$TART_REPO/releases/tag/$latest"
+    if confirm "Bump bundled tart to $latest? [y/N] "; then
+        bump_tart_pin "$latest"
+    else
+        echo "==> Keeping bundled tart $TART_VERSION; $latest is available"
+    fi
+}
+
+# Downloads and verifies tart VERSION, then rewrites the pin (and the license
+# reference after a second y) only when every check passed. Never commits.
+bump_tart_pin() {
+    local version="$1"
+    local download extracted expected
+    download="$(download_tart_assets "$version")"
+    expected="$(checksum_from_release "$download/tart_${version}_checksums.txt")"
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || \
+        fail "tart $version checksums file has no SHA-256 for tart.tar.gz"
+    [[ "$(sha256_of "$download/tart.tar.gz")" == "$expected" ]] || \
+        fail "tart $version archive does not match its release checksums file"
+    mkdir -p "$TART_CACHE_DIR/$version"
+    mv "$download/tart.tar.gz" "$download/tart_${version}_checksums.txt" \
+        "$TART_CACHE_DIR/$version/"
+
+    extracted="$(mktemp -d "$STAGING_DIR/tart-extract.XXXXXX")"
+    fetch_tart_archive "$version" "$expected" "$extracted"
+    verify_tart_app "$extracted/tart.app" "$version"
+
+    local files="$TART_PIN_FILE"
+    if ! cmp -s "$extracted/LICENSE" "$TART_LICENSE_REF"; then
+        diff -u "$TART_LICENSE_REF" "$extracted/LICENSE" || true
+        if ! confirm "The tart license text changed. Accept the new license? [y/N] "; then
+            echo "==> Keeping bundled tart $TART_VERSION; $version is available"
+            return
+        fi
+        cp "$extracted/LICENSE" "$TART_LICENSE_REF"
+        files="$files $TART_LICENSE_REF"
+    fi
+
+    local comment
+    comment="$(grep '^#' "$TART_PIN_FILE" || true)"
+    {
+        [[ -z "$comment" ]] || printf '%s\n' "$comment"
+        printf 'TART_VERSION=%s\n' "$version"
+        printf 'TART_SHA256=%s\n' "$expected"
+    } > "$TART_PIN_FILE.tmp"
+    mv "$TART_PIN_FILE.tmp" "$TART_PIN_FILE"
+
+    echo "==> Bumped bundled tart to $version"
+    echo "    Commit these files on their own, with a CHANGELOG entry: $files"
+    echo "    Suggested subject: chore: bump bundled tart to $version"
+}
+
 # Checks that APP is the genuine, unchanged tart VERSION: a valid signature by
 # the Cirrus Labs team, accepted by Gatekeeper, with its provisioning profile.
 verify_tart_app() {
@@ -475,7 +579,8 @@ write_appcast() {
 
 main() {
     parse_args "$@"
-    resolve_version
+    # --check-tart builds nothing, so it needs no version.
+    [[ "$CHECK_TART_ONLY" == true ]] || resolve_version
     require_tools
     load_tart_pin
 
@@ -483,6 +588,14 @@ main() {
     # variables of a function are out of scope once that function returns.
     STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tartmanager-package.XXXXXX")"
     trap '[[ -z "${STAGING_DIR:-}" ]] || rm -rf "$STAGING_DIR"' EXIT
+
+    if [[ "$SKIP_TART_CHECK" == true ]]; then
+        echo "==> Skipped the tart release check (--skip-tart-check)"
+    else
+        check_tart_release
+        load_tart_pin
+    fi
+    [[ "$CHECK_TART_ONLY" == true ]] && exit 0
 
     build_release
     prepare_tart
