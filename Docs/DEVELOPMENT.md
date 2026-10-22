@@ -161,16 +161,19 @@ defaults delete TartManager tartSource
 
 ### Test the bundled tart
 
-The packaged app embeds tart at `Contents/Helpers/tart.app`. To test the
-Bundled source before packaging adds it:
+`Scripts/package.sh` embeds the pinned tart at `Contents/Helpers/tart.app`
+(see [DEPLOYMENT.md](DEPLOYMENT.md#bundled-tart)). To test the Bundled
+source, package a DMG, open it, and open **Tart Manager** from it. Settings →
+General → Tart offers Bundled.
 
-1. Package a DMG with `Scripts/package.sh` (see
-   [DEPLOYMENT.md](DEPLOYMENT.md)), open it, and copy **Tart Manager** to a
-   writable folder, for example `~/Desktop`.
-2. Copy a signed `tart.app` into the copy. Homebrew keeps one in
-   `$(brew --prefix tart)/libexec/tart.app`:
+To test the Bundled source with another tart, for example Homebrew's:
+
+1. Copy **Tart Manager** from the DMG to a writable folder, for example
+   `~/Desktop`.
+2. Replace the bundled tart with another signed `tart.app`:
 
    ```sh
+   rm -rf ~/Desktop/"Tart Manager.app"/Contents/Helpers/tart.app
    ditto "$(brew --prefix tart)/libexec/tart.app" \
        ~/Desktop/"Tart Manager.app"/Contents/Helpers/tart.app
    ```
@@ -182,7 +185,7 @@ Bundled source before packaging adds it:
    codesign --force --sign - ~/Desktop/"Tart Manager.app"
    ```
 
-4. Open that copy. Settings → General → Tart now offers Bundled.
+4. Open that copy. Settings → General → Tart shows the version of that tart.
 
 ### Open in Xcode
 

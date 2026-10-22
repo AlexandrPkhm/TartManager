@@ -37,8 +37,10 @@ virtualization.
 - **Target Platform**: macOS 14.0 and later.
 - **Project Type**: Native macOS desktop application and Swift library.
 - **Performance Goals**: N/A; no numeric goals are documented.
-- **Constraints**: The GUI requires an installed `tart` 2.0.0+ binary, but
-  builds and tests are hermetic. Swift 5 language mode restricts new syntax.
+- **Constraints**: The GUI needs no separate tart: packaged builds embed
+  the pinned upstream `tart.app` at `Contents/Helpers/tart.app`. A `swift run`
+  build has no bundled tart and needs an installed `tart` 2.0.0+. Builds and
+  tests are hermetic. Swift 5 language mode restricts new syntax.
   Release builds are signed ad-hoc and are not notarized.
 - **Scale/Scope**: A local, single-user control center for the host's tart VM
   inventory; it has no server component.
@@ -59,8 +61,11 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
-├── Scripts/package.sh             # Release build, app bundle, Sparkle embedding, signing,
-│                                  # DMG packaging, and the signed appcast (--appcast)
+├── Scripts/
+│   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
+│   │                              # bundle, Sparkle, signing, DMG, signed appcast
+│   ├── tart-pin.env               # Pinned tart release: TART_VERSION and TART_SHA256
+│   └── tart-LICENSE.txt           # LICENSE of the pinned tart release, byte for byte
 ├── .github/
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
 │   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled
@@ -307,6 +312,15 @@ environment.
   offline backup. Never read, export, print, or commit it, and never put it
   in CI. Only the public key (`SPARKLE_PUBLIC_ED_KEY` in
   `Scripts/package.sh`) enters the repository.
+- Never re-sign `Contents/Helpers/tart.app`: it keeps its Developer ID
+  signature, provisioning profile, and notarization. `Scripts/package.sh`
+  verifies it after it signs the outer app.
+- Before you answer `y` to `Bump bundled tart to X.Y.Z? [y/N]` or to the
+  license prompt of `Scripts/package.sh`, ask the maintainer in chat. To
+  test the bump, use a scratch pin with `--tart-pin-file`.
+- Commit a tart pin bump (`Scripts/tart-pin.env`, and
+  `Scripts/tart-LICENSE.txt` when it changed) on its own, with a CHANGELOG
+  entry, for example `chore: bump bundled tart to X.Y.Z`.
 - Never sign an ad-hoc build with `--options runtime`: Library Validation
   then refuses the ad-hoc `Sparkle.framework`. Sign nested code inside-out
   (`Autoupdate`, `Updater.app`, `Sparkle.framework`, then the app) and never

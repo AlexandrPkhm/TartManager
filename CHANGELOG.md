@@ -20,6 +20,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   banner when the other tart works.
 - Added the active tart's version, source, and path to copied error reports
   and to Settings → About.
+- Added tart 2.41.1 inside Tart Manager, so you do not need Homebrew or a
+  separate tart. The bundled tart is the default for new users.
+- Added an **Acknowledgements** panel to Settings → About with the tart
+  license (**View License**) and a link to tart on GitHub.
 
 ### Changed
 
