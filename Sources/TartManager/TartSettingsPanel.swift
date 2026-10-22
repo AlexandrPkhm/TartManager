@@ -1,9 +1,9 @@
 import SwiftUI
 import TartKit
 
-/// Settings → General → Tart: the source choice (Bundled / Path), the
-/// read-only path with **Choose…** and **Reset**, and the active tart with
-/// **Re-check**. All copy and control states come from `TartSettingsCopy`;
+/// Settings → General → Tart: the source menu (Bundled / Path, the same
+/// control as Appearance), the read-only path with **Choose…** and **Reset**
+/// (shown only for Path), and the active tart with **Re-check**. All copy and control states come from `TartSettingsCopy`;
 /// every change goes through `AppModel`, which gates and validates it.
 struct TartSettingsPanel: View {
     @EnvironmentObject var model: AppModel
@@ -28,35 +28,65 @@ struct TartSettingsPanel: View {
     @ViewBuilder
     private func content(_ copy: TartSettingsCopy) -> some View {
         LabeledContent("Source") {
-            HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .trailing, spacing: 4) {
+                // The same menu control as the Appearance picker.
                 Picker("Source", selection: Binding(
                     get: { model.tartReport?.selected ?? .installed },
                     set: { source in
                         chooseRejection = nil
                         model.setTartSource(source)
                     })) {
-                    Text(TartSettingsCopy.sourceLabel(.bundled)).tag(TartSource.bundled)
-                        .disabled(!copy.bundledEnabled)
-                    Text(TartSettingsCopy.sourceLabel(.installed)).tag(TartSource.installed)
+                    ForEach([TartSource.bundled, .installed], id: \.self) { source in
+                        Label(TartSettingsCopy.sourceLabel(source),
+                              systemImage: TartSettingsCopy.sourceSymbol(source))
+                            .tag(source)
+                            .disabled(source == .bundled && !copy.bundledEnabled)
+                    }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
                 .labelsHidden()
                 .fixedSize()
-                // Beside the Bundled choice, the first radio row.
-                Text(verbatim: copy.bundledVersionText ?? copy.bundledCaption ?? "")
-                    .font(.caption)
-                    .foregroundStyle(WorkspaceStyle.muted)
-                    .frame(minWidth: 160, alignment: .leading)
-                    .padding(.top, 1)
+                .disabled(!copy.controlsEnabled)
+                if let detail = copy.sourceDetail {
+                    Text(verbatim: detail)
+                        .font(.caption)
+                        .foregroundStyle(WorkspaceStyle.muted)
+                }
             }
-            .disabled(!copy.controlsEnabled)
         }
         if let jobsCaption = copy.jobsCaption {
             Text(jobsCaption)
                 .font(.caption)
                 .foregroundStyle(WorkspaceStyle.muted)
         }
+        if copy.showsPathRow {
+            WorkspaceStyle.line.frame(height: 1)
+            pathRow(copy)
+        }
         WorkspaceStyle.line.frame(height: 1)
+        LabeledContent("Active tart") {
+            HStack(spacing: 8) {
+                Text(verbatim: copy.activeLine)
+                    .help(copy.activeHelp ?? "")
+                    .textSelection(.enabled)
+                Button(model.isCheckingPrerequisite ? "Checking…" : "Re-check") {
+                    model.checkPrerequisite()
+                }
+                .disabled(model.isCheckingPrerequisite)
+            }
+        }
+        if let warning = copy.versionWarning {
+            Label {
+                Text(warning).fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+            }
+            .font(.caption)
+            .foregroundStyle(WorkspaceStyle.warning)
+        }
+    }
+
+    private func pathRow(_ copy: TartSettingsCopy) -> some View {
         LabeledContent("Path") {
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 8) {
@@ -81,7 +111,7 @@ struct TartSettingsPanel: View {
                         }
                     }
                 }
-                .disabled(!copy.pathControlsEnabled || !copy.controlsEnabled)
+                .disabled(!copy.controlsEnabled)
                 Text(verbatim: copy.pathCaption)
                     .font(.caption)
                     .foregroundStyle(WorkspaceStyle.muted)
@@ -91,28 +121,6 @@ struct TartSettingsPanel: View {
                         .foregroundStyle(WorkspaceStyle.warning)
                 }
             }
-            .opacity(copy.pathControlsEnabled ? 1 : 0.6)
-        }
-        WorkspaceStyle.line.frame(height: 1)
-        LabeledContent("Active tart") {
-            HStack(spacing: 8) {
-                Text(verbatim: copy.activeLine)
-                    .help(copy.activeHelp ?? "")
-                    .textSelection(.enabled)
-                Button(model.isCheckingPrerequisite ? "Checking…" : "Re-check") {
-                    model.checkPrerequisite()
-                }
-                .disabled(model.isCheckingPrerequisite)
-            }
-        }
-        if let warning = copy.versionWarning {
-            Label {
-                Text(warning).fixedSize(horizontal: false, vertical: true)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-            }
-            .font(.caption)
-            .foregroundStyle(WorkspaceStyle.warning)
         }
     }
 

@@ -83,9 +83,25 @@ import Testing
             == "Detected automatically · tart 1.9.0 (outdated)")
     }
 
-    @Test func pathRowEnabledOnlyForPath() {
-        #expect(copy(selected: .installed).pathControlsEnabled)
-        #expect(copy(selected: .bundled).pathControlsEnabled == false)
+    @Test func pathRowShownOnlyForPath() {
+        #expect(copy(selected: .installed).showsPathRow)
+        #expect(copy(selected: .bundled).showsPathRow == false)
+    }
+
+    @Test func sourceDetailForBundledShowsItsVersion() {
+        #expect(copy(selected: .bundled).sourceDetail == "tart 2.41.1")
+        #expect(copy(bundled: .damaged(source: .bundled, reason: "x"), selected: .bundled).sourceDetail
+            == "Damaged. Reinstall Tart Manager.")
+    }
+
+    @Test func sourceDetailForPathExplainsOnlyAMissingBundle() {
+        #expect(copy(selected: .installed).sourceDetail == nil)
+        #expect(copy(bundled: nil, selected: .installed).sourceDetail == "Not available in this build")
+    }
+
+    @Test func sourceSymbols() {
+        #expect(TartSettingsCopy.sourceSymbol(.bundled) == "shippingbox")
+        #expect(TartSettingsCopy.sourceSymbol(.installed) == "folder")
     }
 
     @Test func jobsDisableControls() {

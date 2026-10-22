@@ -11,12 +11,16 @@ struct TartSettingsCopy: Equatable {
     let bundledEnabled: Bool
     let bundledCaption: String?
     let bundledVersionText: String?
+    /// The caption under the Source menu: the bundled tart's version or state
+    /// while Bundled is selected; with Path selected, only why Bundled cannot
+    /// be chosen, because the Path row shows its own version.
+    let sourceDetail: String?
     /// The read-only path field: the custom path, else the detected path.
     let pathFieldValue: String
     let pathCaption: String
     let showsReset: Bool
-    /// The path row applies only to the Path (installed) source.
-    let pathControlsEnabled: Bool
+    /// The Path row shows only while Path (the installed source) is selected.
+    let showsPathRow: Bool
     /// `false` while a job runs: the source, Choose…, and Reset are refused.
     let controlsEnabled: Bool
     let jobsCaption: String?
@@ -55,7 +59,13 @@ struct TartSettingsCopy: Equatable {
             pathCaption = Self.notFoundCaption
         }
         showsReset = customPath != nil
-        pathControlsEnabled = report.selected == .installed
+        showsPathRow = report.selected == .installed
+        switch report.selected {
+        case .bundled:
+            sourceDetail = bundledVersionText ?? bundledCaption
+        case .installed:
+            sourceDetail = report.bundled == nil ? Self.bundledUnavailableCaption : nil
+        }
 
         controlsEnabled = runningJobs == 0
         jobsCaption = runningJobs == 0 ? nil : TartSourceSwitchGate.refusalMessage(jobCount: runningJobs)
@@ -83,6 +93,14 @@ struct TartSettingsCopy: Equatable {
         switch source {
         case .bundled: return "Bundled"
         case .installed: return "Path"
+        }
+    }
+
+    /// The Source menu icon, like the Appearance menu's icons.
+    static func sourceSymbol(_ source: TartSource) -> String {
+        switch source {
+        case .bundled: return "shippingbox"
+        case .installed: return "folder"
         }
     }
 
