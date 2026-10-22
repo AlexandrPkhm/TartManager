@@ -88,6 +88,30 @@ affected path, and lets you retry or choose another folder without restarting.
 Tart Manager also checks storage again every 30 seconds and when you switch
 back to the app, so the VM list comes back after you mount the volume.
 
+## Choosing the tart
+
+**Settings** → **General** → **Tart** selects the tart that Tart Manager
+uses:
+
+- **Bundled** uses the tart inside Tart Manager. This choice comes with a
+  later release. Until then, it shows "Not available in this build".
+- **Path** uses the tart installed on this Mac. Tart Manager finds it in
+  the Homebrew folders, then in `PATH`. Click **Choose…** to select another
+  tart file, and **Reset** to go back to automatic detection.
+
+**Active tart** shows the version and source in use. Hold the pointer over
+it to see the full path. A change applies at once. You cannot change the
+tart while a job runs.
+
+If the selected tart is missing, damaged, or too old, a banner in the main
+window says what to do. When the other tart works, the banner also offers to
+switch to it. Tart Manager never switches by itself.
+
+When both tarts work, Tart Manager asks once which one to use. Until you
+answer, it keeps the installed tart. Settings and this question warn you
+when the selected tart is older than the other one, because VMs that a
+newer tart changed can fail to open with an older tart.
+
 ## Using your VMs
 
 - **Running:** macOS VMs that you start from Tart Manager run in tart's
