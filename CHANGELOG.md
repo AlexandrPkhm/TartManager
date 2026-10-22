@@ -25,11 +25,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added an **Acknowledgements** panel to Settings → About with the tart
   license (**View License**) and a link to tart on GitHub.
 
-### Changed
-
-- Changed the tart banner to name the failure of the selected tart: missing,
-  damaged, cannot run, or outdated.
-
 ### Removed
 
 - Removed the **Detected tart** row from Settings → Storage; Settings →
