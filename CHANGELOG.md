@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 1.3.0 - 2026-10-22
+
 ### Added
 
 - Added the **Tart** panel to Settings → General: choose the bundled tart or
