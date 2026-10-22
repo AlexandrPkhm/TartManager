@@ -34,12 +34,22 @@ final class AppModel: ObservableObject {
             NSApplication.shared.appearance = appearance.nativeAppearance
         }
     }
+    /// The active tart's status. Mirrors `tartReport?.active`; tests may set
+    /// it directly to inject a client.
     @Published var prerequisite: TartPrerequisiteStatus?
+    /// Both tart sources from the last check, with the selected one.
+    @Published private(set) var tartReport: TartRuntimeReport?
+    /// Set while the one-time source sheet waits for an answer. Only an
+    /// answer (`answerTartSourcePrompt`) or a stored source clears it.
+    @Published private(set) var pendingTartSourcePrompt: TartRuntimeReport?
     @Published var isCheckingPrerequisite = false
     @Published var storageAvailability: StorageAvailability =
         .unavailable(path: StorageLocationValidator.defaultPath, reason: .missing)
 
-    private let checker = PrerequisiteChecker()
+    private let checker: PrerequisiteChecker
+    /// A source change arrived while a check ran; that check's result is
+    /// stale, so it is dropped and the check runs again.
+    private var prerequisiteRecheckPending = false
 
     /// One-time first-run reminders for IPSW-created VMs: flagged on create
     /// completion, consumed when the VM first runs.
@@ -47,8 +57,12 @@ final class AppModel: ObservableObject {
 
     init(settings: AppSettings = AppSettings(),
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard),
-         updater: AppUpdating? = nil) {
+         updater: AppUpdating? = nil,
+         prerequisiteChecker: PrerequisiteChecker? = nil) {
         self.settings = settings
+        // `nil` means the real checker, with this bundle's own tart (if any).
+        self.checker = prerequisiteChecker ?? PrerequisiteChecker(
+            bundledExecutablePath: BundledTartLocation.executablePath(inAppBundle: Bundle.main.bundleURL))
         // `nil` means the real updater. A default argument cannot create it,
         // because default arguments are not main-actor isolated.
         self.updater = updater ?? UpdateController()
@@ -142,7 +156,7 @@ final class AppModel: ObservableObject {
         {
             guard let environment = self.commandEnvironment,
                   let prerequisite = self.prerequisite,
-                  case .ok(_, let binaryPath) = prerequisite else { return nil }
+                  case .ok(_, let binaryPath, _) = prerequisite else { return nil }
             return TartClient(binaryPath: binaryPath,
                               environment: environment.environment)
         }
@@ -1225,21 +1239,131 @@ final class AppModel: ObservableObject {
         await refreshSelectedDetails()
     }
 
+    /// Checks both tart sources, applies the default-source decision, and
+    /// rebuilds the client. A call during a running check queues one more
+    /// check, so a source change is never lost.
     func checkPrerequisite() {
-        guard !isCheckingPrerequisite else { return }
+        guard !isCheckingPrerequisite else {
+            prerequisiteRecheckPending = true
+            Logger.tartRuntime.info("check already running; queued another check")
+            return
+        }
         isCheckingPrerequisite = true
+        prerequisiteRecheckPending = false
         // The checker runs synchronously; a wedged tart binary is bounded by
         // ProcessRunner's timeout, so the check goes off the main actor.
         let checker = self.checker
+        let preference = TartSourcePreference(
+            source: settings.tartSource, customPath: settings.tartCustomPath)
         Task { [weak self] in
-            let status = await Task.detached(priority: .userInitiated) {
-                checker.check()
+            let report = await Task.detached(priority: .userInitiated) {
+                checker.check(preference: preference)
             }.value
             guard let self else { return }
-            self.prerequisite = status
             self.isCheckingPrerequisite = false
-            self.rewireInventoryFetch()
-            self.checkAutomaticPruning()
+            if self.prerequisiteRecheckPending {
+                Logger.tartRuntime.info("dropped a stale check result; checking again")
+                self.checkPrerequisite()
+                return
+            }
+            self.apply(report)
+        }
+    }
+
+    /// Publishes a check result after the default-source decision.
+    private func apply(_ report: TartRuntimeReport) {
+        var published = report
+        switch TartSourceDefaultPolicy.decide(report) {
+        case .keep:
+            pendingTartSourcePrompt = nil
+        case .store(let source):
+            settings.tartSource = source
+            Logger.tartRuntime.notice(
+                "no stored source; stored default \(source.rawValue, privacy: .public)")
+            published = report.selecting(source)
+            pendingTartSourcePrompt = nil
+        case .ask:
+            Logger.tartRuntime.notice(
+                "no stored source and both tarts work; asking once, installed stays active")
+            pendingTartSourcePrompt = report
+        }
+        if case .selectedIsOlder(let selected, let other) = TartVersionSkewPolicy.evaluate(published) {
+            Logger.tartRuntime.warning(
+                "selected tart \(selected, privacy: .public) is older than the other tart \(other, privacy: .public)")
+        }
+        tartReport = published
+        prerequisite = published.active
+        rewireInventoryFetch()
+        checkAutomaticPruning()
+        Task { [weak self] in await self?.inventoryService.refresh() }
+    }
+
+    // MARK: Tart source
+
+    /// Running jobs, for the Settings caption that explains disabled controls.
+    var tartJobsRunningCount: Int {
+        jobManager.jobs.filter { $0.phase == .running }.count
+    }
+
+    /// Selects a tart source and applies it at once. Refused (logged and
+    /// presented) while a job runs; the gate runs before any `await`.
+    @discardableResult
+    func setTartSource(_ source: TartSource) -> Bool {
+        guard allowsTartChange(operation: "change tart source") else { return false }
+        settings.tartSource = source
+        Logger.tartRuntime.notice("source set to \(source.rawValue, privacy: .public)")
+        pendingTartSourcePrompt = nil
+        checkPrerequisite()
+        return true
+    }
+
+    /// The one-time source sheet's answer: stores the choice like a switch.
+    func answerTartSourcePrompt(_ source: TartSource) {
+        setTartSource(source)
+    }
+
+    /// Stores a custom tart for the installed source after validation.
+    /// Returns `nil` when a running job refuses the change; an invalid path
+    /// stores nothing.
+    @discardableResult
+    func chooseCustomTart(path: String) -> TartCustomPathValidation? {
+        guard allowsTartChange(operation: "choose tart file") else { return nil }
+        let result = TartCustomPathValidator.validate(path)
+        let shownPath = (path as NSString).abbreviatingWithTildeInPath
+        switch result {
+        case .valid(let valid):
+            settings.tartCustomPath = valid
+            Logger.tartRuntime.notice("custom tart set to \(shownPath, privacy: .public)")
+            checkPrerequisite()
+        case .invalid(_, let reason):
+            Logger.tartRuntime.error(
+                "rejected custom tart \(shownPath, privacy: .public): \(reason.rawValue, privacy: .public)")
+        }
+        return result
+    }
+
+    /// Clears the custom tart and returns to automatic detection.
+    func resetCustomTart() {
+        guard allowsTartChange(operation: "reset tart file") else { return }
+        settings.tartCustomPath = nil
+        Logger.tartRuntime.notice("custom tart cleared; using detection")
+        checkPrerequisite()
+    }
+
+    /// `TartSourceSwitchGate` at the model boundary: a refusal is logged
+    /// and presented, never silent.
+    private func allowsTartChange(operation: String) -> Bool {
+        switch TartSourceSwitchGate.decide(activeJobs: jobManager.jobs) {
+        case .allow:
+            return true
+        case .refuse(let jobCount):
+            Logger.tartRuntime.notice(
+                "refused \(operation, privacy: .public): \(jobCount, privacy: .public) running job(s)")
+            present(TartOperationError(
+                operation: operation,
+                message: TartSourceSwitchGate.refusalMessage(jobCount: jobCount),
+                rawDetails: ""))
+            return false
         }
     }
 

@@ -13,7 +13,7 @@ import Combine
         settings.storagePath = "/tmp/manual-vm-storage"
         let model = AppModel(settings: settings)
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: "/test/tart")
+                                 binaryPath: "/test/tart", source: .installed)
 
         let client = try #require(model.makeTartClient())
         #expect(client.environment["TART_HOME"] == "/tmp/manual-vm-storage")
@@ -167,7 +167,7 @@ import Combine
         settings.cachePrunePolicy = policy
         let model = AppModel(settings: settings)
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: binary)
+                                 binaryPath: binary, source: .installed)
         model.inventoryService.updateFetch { [] }
         return (model, storage, invocations)
     }

@@ -23,12 +23,17 @@ public struct TartOperationError: Equatable, Identifiable, Sendable {
     }
 
     /// Deterministic, complete report for the clipboard or bug tickets.
-    public func copyReport() -> String {
+    /// `tartRuntime` is the active tart's diagnostic line (version, source,
+    /// path); it follows the operation line when given.
+    public func copyReport(tartRuntime: String? = nil) -> String {
         var lines = [
             "Tart Manager error report",
             "operation: \(operation)",
-            "exit code: \(exitCode.map(String.init) ?? "unknown")",
         ]
+        if let tartRuntime {
+            lines.append("tart: \(tartRuntime)")
+        }
+        lines.append("exit code: \(exitCode.map(String.init) ?? "unknown")")
         if let hint {
             lines.append("hint: \(hint)")
         }

@@ -148,7 +148,7 @@ import AppKit
         let model = AppModel(settings: AppSettings(defaults: defaults))
         model.settings.storagePath = dir
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: binaryPath)
+                                 binaryPath: binaryPath, source: .installed)
         let vm = VMEntry(name: "vm-a", source: "local", running: false, state: "stopped",
                          diskSize: 40, diskUsage: 0, accessed: nil)
         model.inventoryService.updateFetch { [vm] }
@@ -327,7 +327,7 @@ extension AppModelTests {
         try stubScript.write(toFile: stubPath, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stubPath)
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: stubPath)
+                                 binaryPath: stubPath, source: .installed)
 
         let vm = VMEntry(name: "vm-clip", source: "local", running: false, state: "stopped",
                          diskSize: 50, diskUsage: 10, accessed: nil)
@@ -426,7 +426,7 @@ extension AppModelTests {
         let stdinFile = dir + "/stdin.txt"
         let (stub, invocationFile) = RegistryLoginStub.recording(captureStdinTo: stdinFile)
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: stub)
+                                 binaryPath: stub, source: .installed)
 
         let result = await model.registryLogin(host: "ghcr.io", username: "ci-bot", password: token)
 
@@ -460,7 +460,7 @@ extension AppModelTests {
         let (stub, invocationFile) = RegistryLoginStub.recording(
             captureStdinTo: dir + "/stdin.txt", waitForGate: gate, announceStart: started)
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
-                                 binaryPath: stub)
+                                 binaryPath: stub, source: .installed)
 
         let first = Task(priority: .high) { await model.registryLogin(host: "ghcr.io", username: "u", password: "p") }
         var startedObserved = false

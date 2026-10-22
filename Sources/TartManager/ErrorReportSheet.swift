@@ -4,6 +4,8 @@ import TartKit
 /// The standard failure report: message, optional hint, raw details, copy.
 struct ErrorReportSheet: View {
     let error: TartOperationError
+    /// The active tart's diagnostic line, copied with the report.
+    let tartRuntime: String?
     let onClose: () -> Void
     @State private var showDetails = false
 
@@ -39,7 +41,7 @@ struct ErrorReportSheet: View {
                 .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
             }
             HStack {
-                CopyButton(value: error.copyReport(), label: "Copy Details")
+                CopyButton(value: error.copyReport(tartRuntime: tartRuntime), label: "Copy Details")
                 Spacer()
                 Button("Close") { onClose() }
                     .keyboardShortcut(.defaultAction)

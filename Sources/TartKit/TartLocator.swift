@@ -1,13 +1,15 @@
 import Foundation
 
-/// Resolves the path of the tart binary.
+/// Detects the tart installed on this Mac (the `installed` source).
 ///
-/// Resolution order:
-/// 1. The explicit path (Settings override / tests)
-/// 2. Well-known Homebrew locations (GUI apps don't inherit the shell PATH)
-/// 3. Each directory of the search PATH
+/// Detection order:
+/// 1. Well-known Homebrew locations (GUI apps don't inherit the shell PATH)
+/// 2. Each directory of the search PATH
+///
+/// A custom path and the bundled tart are not candidates here:
+/// `PrerequisiteChecker` checks each source on its own and never falls back
+/// from one source to another.
 public struct TartLocator: Sendable {
-    public let explicitPath: String?
     public let searchPath: String
     public let wellKnownLocations: [String]
 
@@ -16,10 +18,8 @@ public struct TartLocator: Sendable {
         "/usr/local/bin/tart",
     ]
 
-    public init(explicitPath: String? = nil,
-                searchPath: String? = nil,
+    public init(searchPath: String? = nil,
                 wellKnownLocations: [String]? = nil) {
-        self.explicitPath = explicitPath
         self.searchPath = searchPath
             ?? ProcessInfo.processInfo.environment["PATH"]
             ?? "/usr/bin:/bin"
@@ -28,9 +28,7 @@ public struct TartLocator: Sendable {
 
     /// Returns the first candidate that is an executable file, or nil.
     public func locate() -> String? {
-        var candidates: [String] = []
-        if let explicitPath { candidates.append(explicitPath) }
-        candidates.append(contentsOf: wellKnownLocations)
+        var candidates = wellKnownLocations
         candidates.append(contentsOf: searchPath
             .split(separator: ":")
             .map { "\($0)/tart" })

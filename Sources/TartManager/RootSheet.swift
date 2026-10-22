@@ -8,6 +8,8 @@ import TartKit
 enum RootSheet: Identifiable {
     case onboarding
     case errorReport(TartOperationError)
+    /// The one-time tart source question; only an answer dismisses it.
+    case tartSourcePrompt(TartRuntimeReport)
     case createVM
     case importVM(path: String, suggestedName: String)
 
@@ -15,6 +17,7 @@ enum RootSheet: Identifiable {
         switch self {
         case .onboarding: return "onboarding"
         case .errorReport(let error): return "error-\(error.id.uuidString)"
+        case .tartSourcePrompt: return "tart-source-prompt"
         case .createVM: return "create-vm"
         case .importVM: return "import-vm"
         }

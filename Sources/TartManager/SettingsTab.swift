@@ -7,13 +7,15 @@ enum SettingsTab: Hashable {
     case storage
     case about
 
-    /// The Settings window content height for this tab. Each value fits
-    /// the tab's content at the 640 pt width without scrolling.
+    /// The Settings window content height for this tab, at the 640 pt
+    /// width. Storage and About fit their content without scrolling. General
+    /// uses the Storage height, so switching between them does not resize
+    /// the window, and its `SettingsPage` scrolls.
     var frameHeight: CGFloat {
         switch self {
-        case .general: return 440
-        case .storage: return 620
-        case .about: return 320
+        case .general: return Self.storage.frameHeight
+        case .storage: return 514
+        case .about: return 471
         }
     }
 }

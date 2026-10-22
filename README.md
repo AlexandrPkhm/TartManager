@@ -47,10 +47,11 @@ inventory a macOS interface.
 ## Requirements
 
 - macOS 14 (Sonoma) or later on an Apple silicon (ARM64) Mac.
-- [tart](https://github.com/openai/tart) 2.0.0 or later. Tart Manager
-  does not bundle tart.
 
-Install tart with Homebrew:
+Tart Manager includes [tart](https://github.com/openai/tart), so you do not
+need Homebrew or a separate tart. To use your own tart instead (see
+[Choosing the tart](#choosing-the-tart)), install tart 2.0.0 or later, for
+example with Homebrew:
 
 ```sh
 brew install cirruslabs/cli/tart
@@ -59,8 +60,7 @@ brew install cirruslabs/cli/tart
 ## Install
 
 Download the DMG from the [latest GitHub release](../../releases/latest),
-open it, and drag **Tart Manager** to **Applications**. The app is distributed
-separately from tart, so install the requirement above first.
+open it, and drag **Tart Manager** to **Applications**.
 
 > **Unsigned release:** Tart Manager is not signed with an Apple Developer ID
 > or notarized. The first time you open it, macOS blocks it because it cannot
@@ -87,6 +87,30 @@ If the storage volume is unavailable, Tart Manager shows the cause and the
 affected path, and lets you retry or choose another folder without restarting.
 Tart Manager also checks storage again every 30 seconds and when you switch
 back to the app, so the VM list comes back after you mount the volume.
+
+## Choosing the tart
+
+**Settings** → **General** → **Tart** selects the tart that Tart Manager
+uses:
+
+- **Bundled** uses the tart inside Tart Manager. It updates with Tart
+  Manager.
+- **Path** uses the tart installed on this Mac. Tart Manager finds it in
+  the Homebrew folders, then in `PATH`. Click **Choose…** to select another
+  tart file, and **Reset** to go back to automatic detection.
+
+**Active tart** shows the version and source in use. Hold the pointer over
+it to see the full path. A change applies at once. You cannot change the
+tart while a job runs.
+
+If the selected tart is missing, damaged, or too old, a banner in the main
+window says what to do. When the other tart works, the banner also offers to
+switch to it. Tart Manager never switches by itself.
+
+When both tarts work, Tart Manager asks once which one to use. Until you
+answer, it keeps the installed tart. Settings and this question warn you
+when the selected tart is older than the other one, because VMs that a
+newer tart changed can fail to open with an older tart.
 
 ## Using your VMs
 
@@ -150,9 +174,12 @@ the update feed, receives your IP address and the app's user agent.
 - [Changelog](CHANGELOG.md) — release history and unreleased changes.
 - [License](LICENSE) — MIT License.
 
-## Acknowledgments
+## Acknowledgements
 
-Huge thanks to the creators and contributors of
-[Tart](https://github.com/openai/tart), the virtualization toolset that makes
-Tart Manager possible. Tart builds on Apple's Virtualization.framework to run
-macOS and Linux VMs on Apple silicon.
+Thanks to the tart authors and contributors at Cirrus Labs and OpenAI for the
+virtualization tool that Tart Manager is built on.
+[Tart](https://github.com/openai/tart) builds on Apple's
+Virtualization.framework to run macOS and Linux VMs on Apple silicon.
+
+The tart inside Tart Manager is licensed under FSL-1.1-ALv2. To read the
+license, open **Settings** → **About** and click **View License**.

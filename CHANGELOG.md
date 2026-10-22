@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Added the **Tart** panel to Settings → General: choose the bundled tart or
+  a tart on this Mac (detected automatically or chosen with **Choose…**),
+  and see the active tart's version, source, and path.
+- Added a one-time question that asks which tart to use when both the
+  bundled and the installed tart work, and a warning when the selected tart
+  is older than the other one.
+- Added a **Use bundled tart** or **Use installed tart** button to the tart
+  banner when the other tart works.
+- Added the active tart's version, source, and path to copied error reports
+  and to Settings → About.
+- Added tart 2.41.1 inside Tart Manager, so you do not need Homebrew or a
+  separate tart. The bundled tart is the default for new users.
+- Added an **Acknowledgements** panel to Settings → About with the tart
+  license (**View License**) and a link to tart on GitHub.
+
+### Removed
+
+- Removed the **Detected tart** row from Settings → Storage; Settings →
+  General → **Tart** shows it now.
+
 ### Fixed
 
 - Fixed the Dock icon so that a click opens the main window again after the

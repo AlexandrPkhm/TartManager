@@ -17,6 +17,13 @@ struct AboutSettingsView: View {
         return version.map { "Version \($0)" } ?? "Development build"
     }
 
+    /// A file lookup only; `TartAcknowledgementCopy` holds the tested logic.
+    private var acknowledgement: TartAcknowledgementCopy {
+        TartAcknowledgementCopy(
+            report: model.tartReport,
+            bundledVersion: BundledTartLocation.declaredVersion(inAppBundle: Bundle.main.bundleURL))
+    }
+
     var body: some View {
         let copy = UpdateStatusCopy(status: model.updateStatus)
         SettingsPage {
@@ -31,6 +38,15 @@ struct AboutSettingsView: View {
                     Text(versionLine)
                         .foregroundStyle(WorkspaceStyle.muted)
                         .textSelection(.enabled)
+                    if let tart = model.prerequisite?.diagnosticLine {
+                        Text(verbatim: "tart: \(tart)")
+                            .font(.caption)
+                            .foregroundStyle(WorkspaceStyle.muted)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(tart)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             Text(Self.description)
@@ -53,6 +69,9 @@ struct AboutSettingsView: View {
                         .accessibilityLabel("Check for Updates")
                 }
             }
+            if acknowledgement.isVisible {
+                TartAcknowledgementPanel(copy: acknowledgement)
+            }
             HStack(spacing: 16) {
                 Link("GitHub", destination: Self.gitHubURL)
                     .accessibilityLabel("Open Tart Manager on GitHub")
@@ -60,6 +79,28 @@ struct AboutSettingsView: View {
                     .accessibilityLabel("Open the Tart Manager documentation")
             }
             .foregroundStyle(WorkspaceStyle.accent)
+        }
+    }
+}
+
+/// The bundled tart's license and project link in the About tab.
+struct TartAcknowledgementPanel: View {
+    let copy: TartAcknowledgementCopy
+
+    var body: some View {
+        SettingsPanel(title: copy.title) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(copy.line)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Link(copy.viewLicenseButton, destination: copy.licenseURL)
+                        .buttonStyle(WorkspaceButtonStyle())
+                        .accessibilityLabel("View the tart license")
+                    Link(copy.gitHubLinkTitle, destination: copy.gitHubURL)
+                        .buttonStyle(WorkspaceButtonStyle())
+                        .accessibilityLabel("Open tart on GitHub")
+                }
+            }
         }
     }
 }
