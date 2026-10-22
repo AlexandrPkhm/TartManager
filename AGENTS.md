@@ -150,6 +150,10 @@ virtualization.
   tart together. Never fall back from the selected source to the other
   one; report the failure and offer the switch. Gate every source or
   custom-path change with `TartSourceSwitchGate` in `AppModel`.
+- Route Dock-icon and main-window decisions through
+  `ApplicationActivationPolicy`. It counts open main windows; do not use
+  AppKit's `hasVisibleWindows`, which is `true` when only Settings is open.
+  `AppDelegate` owns the one policy instance.
 
 ### Architecture
 
@@ -247,9 +251,9 @@ environment.
   `suspend`, `errorReporting`, `TartClient`, `resources`, `clone`,
   `importJob`, `importCleanup`, `overcommit`, `snapshot`, `restore`,
   `createJob`, `createCleanup`, `deleteVM`, `rename`, `replaceDisk`,
-  `registries`, `sharedFolders`, `icon`, `clipboard`, `updates`, and
-  `tartRuntime`. Log tart paths in `tartRuntime` with the user home shown
-  as `~`.
+  `registries`, `sharedFolders`, `icon`, `clipboard`, `updates`,
+  `tartRuntime`, and `window`. Log tart paths in `tartRuntime` with the user
+  home shown as `~`.
 - Scrub registry credentials before errors, logs, sheets, or the clipboard
   receive them with `RegistryCredentialScrubber`. Shared-folder logs may record
   only counts and mount tags.

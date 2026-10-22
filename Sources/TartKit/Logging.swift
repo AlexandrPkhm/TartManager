@@ -73,4 +73,7 @@ public extension Logger {
     /// decisions, switches, refusals, and bundled-tart verification. Paths
     /// are public, with the user home shown as `~`.
     static let tartRuntime = Logger(subsystem: "app.TartManager", category: "tartRuntime")
+    /// Main-window and Dock lifecycle: open-window counts, activation-policy
+    /// changes, Dock reopen decisions, and reopen failures.
+    static let window = Logger(subsystem: "app.TartManager", category: "window")
 }
