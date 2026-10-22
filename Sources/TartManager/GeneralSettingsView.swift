@@ -1,13 +1,15 @@
 import SwiftUI
 import TartKit
 
-/// General settings for appearance, the detail pane's SSH command, the tart
-/// source (`TartSettingsPanel`), and automatic update checks.
+/// General settings: the tart source (`TartSettingsPanel`) first, then
+/// appearance, the detail pane's SSH command, and automatic update checks.
+/// The page scrolls at the Storage tab's height.
 struct GeneralSettingsView: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
         SettingsPage {
+            TartSettingsPanel()
             SettingsPanel(title: "Appearance") {
                 LabeledContent("Appearance") {
                     AppearancePicker()
@@ -34,7 +36,6 @@ struct GeneralSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(WorkspaceStyle.muted)
             }
-            TartSettingsPanel()
             SettingsPanel(title: "Updates") {
                 LabeledContent("Check for updates automatically") {
                     Toggle("Check for updates automatically", isOn: Binding(
