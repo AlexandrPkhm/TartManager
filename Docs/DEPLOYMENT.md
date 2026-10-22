@@ -52,24 +52,36 @@ configuration on each, optionally pre-seeded by configuration management
 Tart Manager ships as a conventional macOS `.app` inside a disk image (DMG).
 Because the project is Swift Package Manager only (no `.xcodeproj`), the
 bundle must be assembled by hand — `swift build` produces a bare executable.
-The packaged app does not bundle `tart` itself; the CLI remains a separate
-prerequisite on the target machine (see [Infrastructure
-Dependencies](#infrastructure-dependencies)).
+The packaged app embeds the unchanged upstream `tart.app` at
+`Contents/Helpers/tart.app`, so target machines need no separate tart (see
+[Bundled tart](#bundled-tart)).
 
-The flow has four stages: release build, bundle assembly, code signing, and
-DMG creation. An optional fifth stage writes the signed update feed (see
-[In-App Updates](#in-app-updates)). The repository ships
-`Scripts/package.sh`, which automates all of them:
+Before it builds, the script looks for a newer tart release (see [Release
+procedure](#release-procedure)). The flow then has five stages: release
+build, bundled tart, bundle assembly, code signing, and DMG creation. An
+optional sixth stage writes the signed update feed (see [In-App
+Updates](#in-app-updates)). The repository ships `Scripts/package.sh`, which
+automates all of them:
 
 ```sh
-Scripts/package.sh                    # ad-hoc signed; version = latest git tag (or 1.0.0)
+Scripts/package.sh                    # ad-hoc; version = latest tag without its v (or 1.0.0)
 Scripts/package.sh --version 1.2.3    # stamp a specific version
 Scripts/package.sh --version 1.2.3 --appcast   # also write dist/updates/
 Scripts/package.sh --sign "Developer ID Application: Jane Doe (TEAM123)" --notarize
 Scripts/package.sh --skip-build       # re-use the existing release binary
+Scripts/package.sh --skip-tart-check  # offline: no newer-tart check
+Scripts/package.sh --check-tart       # run only the newer-tart check
 ```
 
-The artifact lands in `dist/TartManager-<version>.dmg`. With `--sign`,
+| Option | Effect |
+| --- | --- |
+| `--skip-tart-check` | Does not look for a newer tart. Prints `==> Skipped the tart release check (--skip-tart-check)`. |
+| `--check-tart` | Runs only the newer-tart check, then exits. Needs no `--version`. |
+| `--tart-pin-file PATH` | Reads the tart pin from `PATH`. The default is `Scripts/tart-pin.env`. |
+
+The artifact lands in `dist/TartManager-<version>.dmg`, and the last line
+prints its size (`==> Done: <path> (<size> MB)`). With tart 2.41.1 the DMG is
+about 30 MB, and the unpacked app is about 85 MB. With `--sign`,
 adding `--notarize` notarizes and staples the finished DMG. Set
 `NOTARY_PROFILE` to the name of a notarytool Keychain profile; the profile
 keeps release credentials out of the packaging process's arguments.
@@ -86,6 +98,47 @@ swift build -c release
 Find the release binary with `swift build -c release --show-bin-path`;
 the output location varies between SwiftPM build systems. The app targets
 Apple Silicon, matching tart's own host requirements.
+
+### Bundled tart
+
+The script embeds one pinned tart release from
+[openai/tart](https://github.com/openai/tart). These files control it:
+
+| File | Content |
+| --- | --- |
+| `Scripts/tart-pin.env` | `TART_VERSION` and `TART_SHA256` of the release asset `tart.tar.gz`. |
+| `Scripts/tart-LICENSE.txt` | The `LICENSE` of the pinned release, byte for byte, for the license check. Tart 2.41.1 uses FSL-1.1-ALv2. The app does not ship it. |
+| `.build/tart-cache/<version>/` | The downloaded `tart.tar.gz` and `tart_<version>_checksums.txt`. Git ignores `.build/`. |
+
+For each build, the script does these steps before it assembles the bundle:
+
+1. Uses the cached archive, or downloads it with
+   `gh release download <version> --repo openai/tart`. It deletes a cached
+   archive that does not match `TART_SHA256` and downloads it again.
+2. Checks the archive against `TART_SHA256` and against the line for
+   `tart.tar.gz` in the release checksums file.
+3. Extracts the archive into a new, empty folder in the staging folder,
+   never into the repository.
+4. Verifies `tart.app`:
+    - `codesign --verify --strict` passes.
+    - The team is `9M2P8L4D89` (Cirrus Labs, Inc.), the same value as
+      `BundledTartVerifier.expectedTeamIdentifier`.
+    - `spctl --assess --type execute` accepts it.
+    - `tart --version` prints the pinned version.
+    - `Contents/embedded.provisionprofile` exists.
+5. Compares the archive `LICENSE` with `Scripts/tart-LICENSE.txt`.
+
+Any failed check stops the build. The bundle assembly then copies
+`tart.app` with `ditto` to `Contents/Helpers/tart.app`.
+
+The app does not ship a copy of the license. FSL-1.1-ALv2 accepts "a copy of
+or a link to" its terms, so **View License** in the About tab opens
+`https://github.com/openai/tart/blob/<version>/LICENSE`. The version comes
+from `CFBundleShortVersionString` in the bundled `tart.app`, because terms
+differ between tart releases.
+
+The script needs network access and a signed-in `gh` when the cache does not
+have the pinned archive.
 
 ### App bundle assembly
 
@@ -194,6 +247,19 @@ codesign --force --sign - "dist/Tart Manager.app"
 codesign --verify --strict --verbose=2 "dist/Tart Manager.app"
 ```
 
+Do not sign `Contents/Helpers/tart.app`. It keeps its own Developer ID
+signature, entitlements, provisioning profile, and notarization. Upstream
+does not staple a ticket to `tart.app`, so Gatekeeper checks its
+notarization online. After
+it signs the bundle, the script verifies `tart.app` again with
+`codesign --verify --strict` and checks that its team is still `9M2P8L4D89`:
+
+```sh
+T="dist/Tart Manager.app/Contents/Helpers/tart.app"
+codesign --verify --strict --verbose=2 "$T"
+codesign -dv "$T" 2>&1 | grep TeamIdentifier   # TeamIdentifier=9M2P8L4D89
+```
+
 `-` selects ad-hoc signing. Do not use `codesign --deep`: it signs nested
 code in an unspecified order and with the wrong options. Do not add
 `--options runtime` to an ad-hoc build: Library Validation in the hardened
@@ -251,9 +317,11 @@ drag-install.
   xcrun stapler staple dist/TartManager-1.0.0.dmg
   ```
 
-- **`tart` prerequisite.** The DMG never bundles `tart`. Target machines
-  must install it first (`brew install cirruslabs/cli/tart`); otherwise the
-  app shows its remediation banner at launch.
+- **Nested signatures.** An ad-hoc build has an ad-hoc outer app and a
+  nested `tart.app` that keeps its Developer ID signature and notarization.
+  The outer app is notarized only with `--sign` and `--notarize`.
+- **Bundled tart.** Target machines need no separate tart. A user can still
+  select an installed tart in Settings → General → **Tart**.
 
 ## In-App Updates
 
@@ -294,9 +362,31 @@ delete the export file:
 
 ### Release procedure
 
-1. Move the `## Unreleased` entries in `CHANGELOG.md` to a `## X.Y.Z - DATE`
+1. Check for a newer tart, and commit a pin bump before the release:
+
+   ```sh
+   Scripts/package.sh --check-tart
+   ```
+
+   The script prints the pinned and latest versions. When the latest
+   release is newer, it prints the release URL and asks
+   `Bump bundled tart to X.Y.Z? [y/N]`. On `y` it downloads and verifies the
+   release, then writes `Scripts/tart-pin.env`. If the license text changed,
+   it shows the diff and asks
+   `The tart license text changed. Accept the new license? [y/N]` before it
+   writes `Scripts/tart-LICENSE.txt` and the pin. Any other answer, or no
+   terminal, keeps the pin. The script never commits. Commit the bump on its
+   own with a CHANGELOG entry, for example
+   `chore: bump bundled tart to X.Y.Z`.
+
+   > **Warning:** An agent that runs a release build must ask the maintainer
+   > in chat before it answers `y`.
+
+   Each release build (step 3) runs the same check. Use `--skip-tart-check`
+   for an offline build.
+2. Move the `## Unreleased` entries in `CHANGELOG.md` to a `## X.Y.Z - DATE`
    section. The script uses that section as the release notes.
-2. Build, sign, and write the feed:
+3. Build, sign, and write the feed:
 
    ```sh
    Scripts/package.sh --version X.Y.Z --appcast
@@ -309,8 +399,8 @@ delete the export file:
    `https://github.com/AlexandrPkhm/TartManager/releases/download/vX.Y.Z/`.
    The script fails when the CHANGELOG section is missing or empty, or when
    `appcast.xml` has no `sparkle:edSignature`.
-3. Open the packaged app one time, to check that it launches.
-4. Publish the release:
+4. Open the packaged app one time, to check that it launches.
+5. Publish the release:
 
    ```sh
    gh release create vX.Y.Z dist/TartManager-X.Y.Z.dmg dist/updates/appcast.xml --notes-file dist/updates/TartManager-X.Y.Z.md
@@ -341,7 +431,7 @@ signing identity, so plan for a manual install after any key change.
 | Dependency | Type | Version / requirement | Installation |
 | --- | --- | --- | --- |
 | macOS | Host OS | 14.0 or later, Apple Silicon (meet tart's own host requirements) | — |
-| `tart` | CLI executable | `2.0.0` or later (`TartVersion.minimumSupported`) | Must be installed separately: `brew install cirruslabs/cli/tart` |
+| `tart` | CLI executable | `2.0.0` or later (`TartVersion.minimumSupported`) | Bundled in the app. A separate install is optional: `brew install cirruslabs/cli/tart` |
 | Homebrew paths | Binary location | `/opt/homebrew/bin/tart` (Intel: `/usr/local/bin/tart`) | — |
 | VM storage volume | Local filesystem | Existing, writable directory | Chosen at first launch (default `~/.tart`) |
 
@@ -358,16 +448,18 @@ is managed by the `tart` CLI.
 
 ### tart CLI
 
-Tart Manager never bundles `tart`; it must already be installed on the
-target machine. On startup the app probes `tart --version` and shows a
-banner with remediation commands when the prerequisite is unmet:
+Packaged builds include tart at `Contents/Helpers/tart.app` (see [Bundled
+tart](#bundled-tart)). New users get the bundled tart by default. A separate
+tart is optional: a user can select it with **Path** in Settings → General →
+**Tart**. On startup the app probes `tart --version` and shows a banner with
+remediation commands when the selected tart is unusable:
 
 - Missing: `brew install cirruslabs/cli/tart`
 - Outdated: `brew upgrade cirruslabs/cli/tart`
 
-The binary is located in this order:
+With **Path**, the binary is located in this order:
 
-1. Explicit path override (Settings / tests)
+1. The custom path from **Choose…** in Settings
 2. Well-known Homebrew locations — `/opt/homebrew/bin/tart`,
    `/usr/local/bin/tart` (needed because GUI apps do not inherit the shell
    `PATH`)

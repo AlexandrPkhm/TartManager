@@ -85,8 +85,11 @@ brew upgrade tart   # to update
 ```
 
 The build and the entire test suite are hermetic — neither requires tart to
-be installed. Only `swift run` (the live GUI) does. tart is located through
-`/opt/homebrew/bin/tart`, `/usr/local/bin/tart`, or `PATH`.
+be installed. Only `swift run` (the live GUI) does. A `swift run` build has
+no bundled tart, so it uses the Path source: tart is located through
+`/opt/homebrew/bin/tart`, `/usr/local/bin/tart`, or `PATH`, unless you
+choose a file in Settings → General → Tart. Settings shows Bundled as "Not
+available in this build".
 
 ### Other tools
 
@@ -130,7 +133,8 @@ compiles the local sources. Find the debug binary with
   falling back to `/usr/bin:/bin`).
 - All preferences live in `UserDefaults` under the `TartManager` domain:
   `storagePath`, `sshUser`, `snapshotsFolder`, `pruneRetentionDays`,
-  `vmSharedFolders`, `firstRunReminderVMNames`.
+  `vmSharedFolders`, `firstRunReminderVMNames`, `tartSource`
+  (`bundled` or `installed`), and `tartCustomPath`.
 
 ### Run the app
 
@@ -148,6 +152,40 @@ app to its out-of-the-box state for development:
 ```sh
 defaults delete TartManager storagePath
 ```
+
+To see the one-time tart source question again, remove the stored source:
+
+```sh
+defaults delete TartManager tartSource
+```
+
+### Test the bundled tart
+
+`Scripts/package.sh` embeds the pinned tart at `Contents/Helpers/tart.app`
+(see [DEPLOYMENT.md](DEPLOYMENT.md#bundled-tart)). To test the Bundled
+source, package a DMG, open it, and open **Tart Manager** from it. Settings →
+General → Tart offers Bundled.
+
+To test the Bundled source with another tart, for example Homebrew's:
+
+1. Copy **Tart Manager** from the DMG to a writable folder, for example
+   `~/Desktop`.
+2. Replace the bundled tart with another signed `tart.app`:
+
+   ```sh
+   rm -rf ~/Desktop/"Tart Manager.app"/Contents/Helpers/tart.app
+   ditto "$(brew --prefix tart)/libexec/tart.app" \
+       ~/Desktop/"Tart Manager.app"/Contents/Helpers/tart.app
+   ```
+
+3. Re-sign only the outer app. Never use `--deep`: it replaces the tart
+   signature that the bundled-tart check requires.
+
+   ```sh
+   codesign --force --sign - ~/Desktop/"Tart Manager.app"
+   ```
+
+4. Open that copy. Settings → General → Tart shows the version of that tart.
 
 ### Open in Xcode
 
@@ -366,8 +404,16 @@ Keep new code compiling in Swift 5 language mode — the package sets
 
 **Symptom:** the app shows a prerequisite banner instead of the VM list.
 
-**Cause:** tart is not installed, is not on `PATH`, or is older than the
-supported floor (`TartVersion.minimumSupported` = 2.0.0).
+**Cause:** the selected tart is not installed, is not on `PATH`, cannot run
+(a custom path), is damaged (a bundled tart with a bad signature), or is
+older than the supported floor (`TartVersion.minimumSupported` = 2.0.0).
+The banner names the case. To see why each source failed, read the
+`tartRuntime` log:
+
+```sh
+log show --last 10m \
+    --predicate 'subsystem == "app.TartManager" AND category == "tartRuntime"'
+```
 
 **Fix:**
 

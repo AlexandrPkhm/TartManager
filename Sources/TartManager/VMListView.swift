@@ -132,9 +132,11 @@ struct VMListView: View {
 
     private var engineVersion: String {
         switch model.prerequisite {
-        case .ok(let version, _): return "tart \(version)"
-        case .outdated(let version, _, _): return "tart \(version) · outdated"
-        case .missing: return "tart not found"
+        case .ok(let version, _, _): return "tart \(version)"
+        case .outdated(let version, _, _, _): return "tart \(version) (outdated)"
+        case .missing, .damaged, .invalidCustomPath:
+            return model.tartReport.flatMap(TartPrerequisiteGuidance.guidance(for:))?.headline
+                ?? "tart not found"
         case nil: return "Checking tart…"
         }
     }

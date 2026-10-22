@@ -3,8 +3,12 @@ import Testing
 
 @Suite struct SettingsTabTests {
     @Test func everyTabHasItsFrameHeight() {
-        #expect(SettingsTab.general.frameHeight == 440)
-        #expect(SettingsTab.storage.frameHeight == 620)
-        #expect(SettingsTab.about.frameHeight == 320)
+        #expect(SettingsTab.general.frameHeight == 514)
+        #expect(SettingsTab.storage.frameHeight == 514)
+        #expect(SettingsTab.about.frameHeight == 471)
+    }
+
+    @Test func generalMatchesStorage() {
+        #expect(SettingsTab.general.frameHeight == SettingsTab.storage.frameHeight)
     }
 }

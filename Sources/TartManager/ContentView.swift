@@ -17,6 +17,7 @@ struct ContentView: View {
     private var presentedSheet: RootSheet? {
         if showingOnboarding { return .onboarding }
         if let error = model.activeError { return .errorReport(error) }
+        if let prompt = model.pendingTartSourcePrompt { return .tartSourcePrompt(prompt) }
         if showingCreate { return .createVM }
         if !importPath.isEmpty {
             return .importVM(path: importPath, suggestedName: importSuggestedName)
@@ -26,7 +27,8 @@ struct ContentView: View {
 
     /// Item binding over `presentedSheet`: interactive dismissal (Esc) and
     /// the in-sheet `dismiss()`/Close both clear the underlying source, so
-    /// the flags can never desync.
+    /// the flags can never desync. The tart source prompt is the exception:
+    /// only an answer clears it, so it shows again until the user chooses.
     private var sheetBinding: Binding<RootSheet?> {
         Binding(
             get: { presentedSheet },
@@ -44,11 +46,11 @@ struct ContentView: View {
         VStack(spacing: 0) {
             titlebar
             WorkspaceStyle.line.frame(height: 1)
-            if let status = model.prerequisite {
-                if !status.isSatisfied, let info = TartPrerequisiteGuidance.guidance(for: status) {
-                    PrerequisiteBanner(info: info, isChecking: model.isCheckingPrerequisite) {
-                        model.checkPrerequisite()
-                    }
+            if let report = model.tartReport {
+                if let info = TartPrerequisiteGuidance.guidance(for: report) {
+                    PrerequisiteBanner(info: info, isChecking: model.isCheckingPrerequisite,
+                                       onRecheck: { model.checkPrerequisite() },
+                                       onSwitch: { model.setTartSource($0) })
                     Divider()
                 }
             } else {
@@ -108,7 +110,12 @@ struct ContentView: View {
                     .environmentObject(model)
                     .interactiveDismissDisabled()
             case .errorReport(let error):
-                ErrorReportSheet(error: error) { model.activeError = nil }
+                ErrorReportSheet(error: error, tartRuntime: model.prerequisite?.diagnosticLine) {
+                    model.activeError = nil
+                }
+            case .tartSourcePrompt(let report):
+                TartSourcePromptSheet(report: report)
+                    .environmentObject(model)
             case .createVM:
                 NewVMSourceView()
                     .environmentObject(model)
@@ -226,23 +233,28 @@ struct ContentView: View {
         model.prerequisite?.isSatisfied == true
     }
 
+    /// A failed active tart reads as its banner headline.
+    private var failureHeadline: String {
+        model.tartReport.flatMap(TartPrerequisiteGuidance.guidance(for:))?.headline ?? "tart not found"
+    }
+
     // Maps each status explicitly (also fixes the previous footer, which
     // showed "tart not found" for the outdated case).
     private var statusFooter: some View {
         HStack {
             if let status = model.prerequisite {
                 switch status {
-                case .ok(let version, _):
+                case .ok(let version, _, _):
                     Label {
                         Text(verbatim: "tart \(version)")
                     } icon: {
                         Image(systemName: "checkmark.circle.fill")
                     }
                     .foregroundStyle(.secondary)
-                case .missing:
-                    Label("tart not found", systemImage: "exclamationmark.circle")
+                case .missing, .damaged, .invalidCustomPath:
+                    Label(failureHeadline, systemImage: "exclamationmark.circle")
                         .foregroundStyle(.secondary)
-                case .outdated(let found, _, _):
+                case .outdated(let found, _, _, _):
                     Label {
                         Text(verbatim: "tart \(found) (outdated)")
                     } icon: {

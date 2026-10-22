@@ -42,6 +42,37 @@ public struct AppSettings {
         }
     }
 
+    static let tartSourceKey = "tartSource"
+    static let tartCustomPathKey = "tartCustomPath"
+
+    /// The stored tart source; `nil` (missing or unknown value) means no
+    /// preference yet. Set only through `AppModel`, which gates the switch
+    /// with `TartSourceSwitchGate`.
+    public var tartSource: TartSource? {
+        get { defaults.string(forKey: Self.tartSourceKey).flatMap(TartSource.init(rawValue:)) }
+        nonmutating set {
+            if let newValue {
+                defaults.set(newValue.rawValue, forKey: Self.tartSourceKey)
+            } else {
+                defaults.removeObject(forKey: Self.tartSourceKey)
+            }
+        }
+    }
+
+    /// A custom tart executable for the `installed` source; `nil` means
+    /// automatic detection. Set only through `AppModel`, which gates the
+    /// change and validates the path with `TartCustomPathValidator`.
+    public var tartCustomPath: String? {
+        get { defaults.string(forKey: Self.tartCustomPathKey) }
+        nonmutating set {
+            if let newValue {
+                defaults.set(newValue, forKey: Self.tartCustomPathKey)
+            } else {
+                defaults.removeObject(forKey: Self.tartCustomPathKey)
+            }
+        }
+    }
+
     /// Username for the copyable ssh command. Defaults to "admin".
     /// Trimming happens on read; an empty value falls back to "admin".
     public var sshUser: String {

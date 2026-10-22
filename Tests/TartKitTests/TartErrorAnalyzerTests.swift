@@ -55,6 +55,32 @@ import Foundation
         #expect(report.contains("ERR"))
     }
 
+    @Test func copyReportIncludesTartRuntimeLine() {
+        let error = TartErrorAnalyzer.analyze(
+            command: "stop", exitCode: 5, stdout: "OUT", stderr: "ERR")
+        let lines = error.copyReport(tartRuntime: "2.41.1 · bundled · /p")
+            .components(separatedBy: "\n")
+        guard let operationIndex = lines.firstIndex(of: "operation: stop"),
+              operationIndex + 1 < lines.count else {
+            Issue.record("the report has no operation line")
+            return
+        }
+        #expect(lines[operationIndex + 1] == "tart: 2.41.1 · bundled · /p")
+    }
+
+    @Test func copyReportWithoutRuntimeIsUnchanged() {
+        let error = TartOperationError(operation: "stop", message: "M",
+                                       rawDetails: "RAW", hint: "H", exitCode: 5)
+        #expect(error.copyReport() == """
+            Tart Manager error report
+            operation: stop
+            exit code: 5
+            hint: H
+            message: M
+            RAW
+            """)
+    }
+
     @Test func redactionAppliesBeforeMessageAndRawDetails() {
         // The universal contract carries a scrubbing hook so future
         // credential-touching operations (registry login) never leak secrets
