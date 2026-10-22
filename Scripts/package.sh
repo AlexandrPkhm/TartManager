@@ -429,6 +429,15 @@ bump_tart_pin() {
     echo "    Suggested subject: chore: bump bundled tart to $version"
 }
 
+# True when APP is signed by TART_TEAM_ID. The codesign output is captured
+# before grep reads it: in a `codesign | grep -q` pipeline, grep exits at the
+# first match, codesign can die of SIGPIPE, and pipefail then fails the check.
+tart_team_matches() {
+    local details
+    details="$(codesign -dv "$1" 2>&1)" || return 1
+    grep -qx "TeamIdentifier=$TART_TEAM_ID" <<<"$details"
+}
+
 # Checks that APP is the genuine, unchanged tart VERSION: a valid signature by
 # the Cirrus Labs team, accepted by Gatekeeper, with its provisioning profile.
 verify_tart_app() {
@@ -436,7 +445,7 @@ verify_tart_app() {
     echo "==> Verifying tart.app $version"
     codesign --verify --strict --verbose=2 "$app" || \
         fail "tart.app signature verification failed"
-    codesign -dv "$app" 2>&1 | grep -qx "TeamIdentifier=$TART_TEAM_ID" || \
+    tart_team_matches "$app" || \
         fail "tart.app is not signed by team $TART_TEAM_ID"
     spctl --assess --type execute "$app" || \
         fail "Gatekeeper rejects tart.app"
@@ -499,7 +508,7 @@ sign_app() {
     local tart_app="$bundle/Contents/Helpers/tart.app"
     codesign --verify --strict --verbose=2 "$tart_app" || \
         fail "code signature verification failed for $tart_app"
-    codesign -dv "$tart_app" 2>&1 | grep -qx "TeamIdentifier=$TART_TEAM_ID" || \
+    tart_team_matches "$tart_app" || \
         fail "signing changed the team of $tart_app"
 }
 
