@@ -28,31 +28,25 @@ struct TartSettingsPanel: View {
     @ViewBuilder
     private func content(_ copy: TartSettingsCopy) -> some View {
         LabeledContent("Source") {
-            VStack(alignment: .trailing, spacing: 4) {
-                // The same menu control as the Appearance picker.
-                Picker("Source", selection: Binding(
-                    get: { model.tartReport?.selected ?? .installed },
-                    set: { source in
-                        chooseRejection = nil
-                        model.setTartSource(source)
-                    })) {
-                    ForEach([TartSource.bundled, .installed], id: \.self) { source in
-                        Label(TartSettingsCopy.sourceLabel(source),
-                              systemImage: TartSettingsCopy.sourceSymbol(source))
-                            .tag(source)
-                            .disabled(source == .bundled && !copy.bundledEnabled)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .fixedSize()
-                .disabled(!copy.controlsEnabled)
-                if let detail = copy.sourceDetail {
-                    Text(verbatim: detail)
-                        .font(.caption)
-                        .foregroundStyle(WorkspaceStyle.muted)
+            // The same menu control as the Appearance picker.
+            Picker("Source", selection: Binding(
+                get: { model.tartReport?.selected ?? .installed },
+                set: { source in
+                    chooseRejection = nil
+                    model.setTartSource(source)
+                })) {
+                ForEach([TartSource.bundled, .installed], id: \.self) { source in
+                    Label(source == .bundled ? copy.bundledMenuLabel
+                                             : TartSettingsCopy.sourceLabel(source),
+                          systemImage: TartSettingsCopy.sourceSymbol(source))
+                        .tag(source)
+                        .disabled(source == .bundled && !copy.bundledEnabled)
                 }
             }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
+            .disabled(!copy.controlsEnabled)
         }
         if let jobsCaption = copy.jobsCaption {
             Text(jobsCaption)

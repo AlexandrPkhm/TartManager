@@ -3,18 +3,16 @@ import TartKit
 /// The Settings → General → Tart panel copy and control states, derived
 /// from one check report so tests cover every caption without the view.
 struct TartSettingsCopy: Equatable {
-    static let bundledUnavailableCaption = "Not available in this build"
+    static let bundledUnavailableLabel = "Bundled (not available in this build)"
     static let notFoundCaption =
         "Not found. Install tart with `brew install cirruslabs/cli/tart` or choose a file."
 
     /// The Bundled choice can be selected (this build has a bundled tart).
     let bundledEnabled: Bool
-    let bundledCaption: String?
-    let bundledVersionText: String?
-    /// The caption under the Source menu: the bundled tart's version or state
-    /// while Bundled is selected; with Path selected, only why Bundled cannot
-    /// be chosen, because the Path row shows its own version.
-    let sourceDetail: String?
+    /// The Bundled menu item. It carries no version, so the Source row
+    /// keeps one size; the Active tart row shows the version. Without a
+    /// bundled tart it says why the item is disabled.
+    let bundledMenuLabel: String
     /// The read-only path field: the custom path, else the detected path.
     let pathFieldValue: String
     let pathCaption: String
@@ -31,28 +29,15 @@ struct TartSettingsCopy: Equatable {
 
     init(report: TartRuntimeReport, customPath: String?, runningJobs: Int) {
         bundledEnabled = report.bundled != nil
-        switch report.bundled {
-        case nil:
-            bundledCaption = Self.bundledUnavailableCaption
-            bundledVersionText = nil
-        case .damaged?, .missing?, .invalidCustomPath?:
-            bundledCaption = "Damaged. Reinstall Tart Manager."
-            bundledVersionText = nil
-        case .ok(let version, _, _)?:
-            bundledCaption = nil
-            bundledVersionText = "tart \(version)"
-        case .outdated(let found, _, _, _)?:
-            bundledCaption = nil
-            bundledVersionText = "tart \(found) (outdated)"
-        }
+        bundledMenuLabel = report.bundled == nil
+            ? Self.bundledUnavailableLabel : Self.sourceLabel(.bundled)
 
         pathFieldValue = customPath ?? report.installed.binaryPath ?? ""
         let origin = customPath == nil ? "Detected automatically" : "Custom path"
+        // No version here: the Active tart row shows it.
         switch report.installed {
-        case .ok(let version, _, _):
-            pathCaption = "\(origin) · tart \(version)"
-        case .outdated(let found, _, _, _):
-            pathCaption = "\(origin) · tart \(found) (outdated)"
+        case .ok, .outdated:
+            pathCaption = origin
         case .invalidCustomPath, .damaged:
             pathCaption = "\(origin) · cannot run. Choose another file."
         case .missing:
@@ -60,12 +45,6 @@ struct TartSettingsCopy: Equatable {
         }
         showsReset = customPath != nil
         showsPathRow = report.selected == .installed
-        switch report.selected {
-        case .bundled:
-            sourceDetail = bundledVersionText ?? bundledCaption
-        case .installed:
-            sourceDetail = report.bundled == nil ? Self.bundledUnavailableCaption : nil
-        }
 
         controlsEnabled = runningJobs == 0
         jobsCaption = runningJobs == 0 ? nil : TartSourceSwitchGate.refusalMessage(jobCount: runningJobs)

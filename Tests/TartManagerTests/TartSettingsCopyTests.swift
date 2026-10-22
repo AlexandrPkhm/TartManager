@@ -21,32 +21,23 @@ import Testing
             customPath: customPath, runningJobs: runningJobs)
     }
 
-    @Test func bundledUnavailableCaption() {
+    @Test func bundledUnavailableExplainsInTheMenu() {
         let copy = copy(bundled: nil)
         #expect(copy.bundledEnabled == false)
-        #expect(copy.bundledCaption == "Not available in this build")
-        #expect(copy.bundledVersionText == nil)
+        #expect(copy.bundledMenuLabel == "Bundled (not available in this build)")
     }
 
-    @Test func bundledVersionShown() {
+    @Test func bundledMenuLabelHasNoVersion() {
         let copy = copy()
         #expect(copy.bundledEnabled)
-        #expect(copy.bundledCaption == nil)
-        #expect(copy.bundledVersionText == "tart 2.41.1")
-    }
-
-    @Test func bundledDamagedCaption() {
-        let copy = copy(bundled: .damaged(source: .bundled, reason: "x"))
-        #expect(copy.bundledEnabled)
-        #expect(copy.bundledCaption == "Damaged. Reinstall Tart Manager.")
-        #expect(copy.bundledVersionText == nil)
+        #expect(copy.bundledMenuLabel == "Bundled")
+        #expect(self.copy(bundled: .damaged(source: .bundled, reason: "x")).bundledMenuLabel == "Bundled")
     }
 
     @Test func detectedPathCaption() {
         let copy = copy()
         #expect(copy.pathFieldValue == "/opt/homebrew/bin/tart")
-        #expect(copy.pathCaption.hasPrefix("Detected automatically"))
-        #expect(copy.pathCaption.contains("tart 2.32.1"))
+        #expect(copy.pathCaption == "Detected automatically")
         #expect(copy.showsReset == false)
     }
 
@@ -55,8 +46,7 @@ import Testing
                                                   source: .installed)
         let copy = copy(installed: installed, customPath: "/x/tart")
         #expect(copy.pathFieldValue == "/x/tart")
-        #expect(copy.pathCaption.hasPrefix("Custom path"))
-        #expect(copy.pathCaption.contains("tart 2.32.1"))
+        #expect(copy.pathCaption == "Custom path")
         #expect(copy.showsReset)
     }
 
@@ -79,24 +69,12 @@ import Testing
         let installed = TartPrerequisiteStatus.outdated(
             found: TartVersion(major: 1, minor: 9, patch: 0), required: TartVersion.minimumSupported,
             binaryPath: "/opt/homebrew/bin/tart", source: .installed)
-        #expect(copy(installed: installed).pathCaption
-            == "Detected automatically · tart 1.9.0 (outdated)")
+        #expect(copy(installed: installed).pathCaption == "Detected automatically")
     }
 
     @Test func pathRowShownOnlyForPath() {
         #expect(copy(selected: .installed).showsPathRow)
         #expect(copy(selected: .bundled).showsPathRow == false)
-    }
-
-    @Test func sourceDetailForBundledShowsItsVersion() {
-        #expect(copy(selected: .bundled).sourceDetail == "tart 2.41.1")
-        #expect(copy(bundled: .damaged(source: .bundled, reason: "x"), selected: .bundled).sourceDetail
-            == "Damaged. Reinstall Tart Manager.")
-    }
-
-    @Test func sourceDetailForPathExplainsOnlyAMissingBundle() {
-        #expect(copy(selected: .installed).sourceDetail == nil)
-        #expect(copy(bundled: nil, selected: .installed).sourceDetail == "Not available in this build")
     }
 
     @Test func sourceSymbols() {
