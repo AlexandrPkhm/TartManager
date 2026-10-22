@@ -6,51 +6,53 @@ import Testing
     private static let installed = TartPrerequisiteStatus.ok(
         version: TartVersion(major: 2, minor: 32, patch: 1),
         binaryPath: "/opt/homebrew/bin/tart", source: .installed)
-    private static let licensePath = "/Applications/Tart Manager.app/Contents/Resources/tart-LICENSE.txt"
+    private static let bundledOk = TartPrerequisiteStatus.ok(
+        version: TartVersion(major: 2, minor: 41, patch: 1),
+        binaryPath: "/Applications/Tart Manager.app/Contents/Helpers/tart.app/Contents/MacOS/tart",
+        source: .bundled)
 
     private func copy(bundled: TartPrerequisiteStatus?,
-                      licensePath: String? = licensePath) -> TartAcknowledgementCopy {
+                      bundledVersion: String?) -> TartAcknowledgementCopy {
         TartAcknowledgementCopy(
             report: TartRuntimeReport(bundled: bundled, installed: Self.installed,
                                       selected: .installed, storedPreference: .installed),
-            licensePath: licensePath)
+            bundledVersion: bundledVersion)
     }
 
-    @Test func showsVersionFromBundledStatus() {
-        let bundled = TartPrerequisiteStatus.ok(
-            version: TartVersion(major: 2, minor: 41, patch: 1),
-            binaryPath: "/Applications/Tart Manager.app/Contents/Helpers/tart.app/Contents/MacOS/tart",
-            source: .bundled)
-        let copy = copy(bundled: bundled)
+    @Test func showsVersionAndLinksToItsLicense() {
+        let copy = copy(bundled: Self.bundledOk, bundledVersion: "2.41.1")
         #expect(copy.isVisible)
         #expect(copy.title == "Acknowledgements")
         #expect(copy.line ==
             "Tart Manager includes tart 2.41.1 by Cirrus Labs and OpenAI, under the FSL-1.1-ALv2 license.")
-        #expect(copy.showsViewLicense)
-        #expect(copy.licensePath == Self.licensePath)
         #expect(copy.viewLicenseButton == "View License")
+        #expect(copy.licenseURL.absoluteString == "https://github.com/openai/tart/blob/2.41.1/LICENSE")
         #expect(copy.gitHubLinkTitle == "Tart on GitHub")
         #expect(copy.gitHubURL.absoluteString == "https://github.com/openai/tart")
     }
 
     @Test func hiddenWithoutBundledTart() {
-        #expect(copy(bundled: nil).isVisible == false)
-        #expect(TartAcknowledgementCopy(report: nil, licensePath: Self.licensePath).isVisible == false)
+        #expect(copy(bundled: nil, bundledVersion: nil).isVisible == false)
+        #expect(TartAcknowledgementCopy(report: nil, bundledVersion: nil).isVisible == false)
     }
 
-    @Test func noViewLicenseWithoutFile() {
-        let bundled = TartPrerequisiteStatus.ok(
-            version: TartVersion(major: 2, minor: 41, patch: 1), binaryPath: "/x/tart", source: .bundled)
-        let copy = copy(bundled: bundled, licensePath: nil)
-        #expect(copy.isVisible)
-        #expect(copy.showsViewLicense == false)
+    @Test func checkedVersionIsUsedWhenTheBundleDeclaresNone() {
+        let copy = copy(bundled: Self.bundledOk, bundledVersion: nil)
         #expect(copy.line.contains("tart 2.41.1"))
+        #expect(copy.licenseURL.absoluteString == "https://github.com/openai/tart/blob/2.41.1/LICENSE")
     }
 
-    @Test func damagedBundledStillAcknowledges() {
-        let copy = copy(bundled: .damaged(source: .bundled, reason: "unsigned"))
+    @Test func damagedBundledUsesTheDeclaredVersion() {
+        let copy = copy(bundled: .damaged(source: .bundled, reason: "unsigned"), bundledVersion: "2.41.1")
         #expect(copy.isVisible)
+        #expect(copy.line.contains("tart 2.41.1"))
+        #expect(copy.licenseURL.absoluteString == "https://github.com/openai/tart/blob/2.41.1/LICENSE")
+    }
+
+    @Test func unknownVersionLinksToTheCurrentLicense() {
+        let copy = copy(bundled: .damaged(source: .bundled, reason: "unsigned"), bundledVersion: nil)
         #expect(copy.line ==
             "Tart Manager includes tart by Cirrus Labs and OpenAI, under the FSL-1.1-ALv2 license.")
+        #expect(copy.licenseURL.absoluteString == "https://github.com/openai/tart/blob/main/LICENSE")
     }
 }

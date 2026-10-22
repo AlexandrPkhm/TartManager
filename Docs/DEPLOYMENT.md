@@ -107,7 +107,7 @@ The script embeds one pinned tart release from
 | File | Content |
 | --- | --- |
 | `Scripts/tart-pin.env` | `TART_VERSION` and `TART_SHA256` of the release asset `tart.tar.gz`. |
-| `Scripts/tart-LICENSE.txt` | The `LICENSE` of the pinned release, byte for byte. Tart 2.41.1 uses FSL-1.1-ALv2. |
+| `Scripts/tart-LICENSE.txt` | The `LICENSE` of the pinned release, byte for byte, for the license check. Tart 2.41.1 uses FSL-1.1-ALv2. The app does not ship it. |
 | `.build/tart-cache/<version>/` | The downloaded `tart.tar.gz` and `tart_<version>_checksums.txt`. Git ignores `.build/`. |
 
 For each build, the script does these steps before it assembles the bundle:
@@ -129,8 +129,13 @@ For each build, the script does these steps before it assembles the bundle:
 5. Compares the archive `LICENSE` with `Scripts/tart-LICENSE.txt`.
 
 Any failed check stops the build. The bundle assembly then copies
-`tart.app` with `ditto` to `Contents/Helpers/tart.app` and the license to
-`Contents/Resources/tart-LICENSE.txt`. The About tab shows the license.
+`tart.app` with `ditto` to `Contents/Helpers/tart.app`.
+
+The app does not ship a copy of the license. FSL-1.1-ALv2 accepts "a copy of
+or a link to" its terms, so **View License** in the About tab opens
+`https://github.com/openai/tart/blob/<version>/LICENSE`. The version comes
+from `CFBundleShortVersionString` in the bundled `tart.app`, because terms
+differ between tart releases.
 
 The script needs network access and a signed-in `gh` when the cache does not
 have the pinned archive.

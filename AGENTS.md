@@ -65,7 +65,7 @@ virtualization.
 │   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
 │   │                              # bundle, Sparkle, signing, DMG, signed appcast
 │   ├── tart-pin.env               # Pinned tart release: TART_VERSION and TART_SHA256
-│   └── tart-LICENSE.txt           # LICENSE of the pinned tart release, byte for byte
+│   └── tart-LICENSE.txt           # LICENSE of the pinned tart release; build check only
 ├── .github/
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
 │   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled

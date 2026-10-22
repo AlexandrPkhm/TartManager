@@ -21,7 +21,7 @@ struct AboutSettingsView: View {
     private var acknowledgement: TartAcknowledgementCopy {
         TartAcknowledgementCopy(
             report: model.tartReport,
-            licensePath: BundledTartLocation.licensePath(inAppBundle: Bundle.main.bundleURL))
+            bundledVersion: BundledTartLocation.declaredVersion(inAppBundle: Bundle.main.bundleURL))
     }
 
     var body: some View {
@@ -92,16 +92,12 @@ struct TartAcknowledgementPanel: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(copy.line)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 16) {
-                    if let licensePath = copy.licensePath {
-                        Button(copy.viewLicenseButton) {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: licensePath))
-                        }
+                HStack(spacing: 8) {
+                    Link(copy.viewLicenseButton, destination: copy.licenseURL)
                         .buttonStyle(WorkspaceButtonStyle())
                         .accessibilityLabel("View the tart license")
-                    }
                     Link(copy.gitHubLinkTitle, destination: copy.gitHubURL)
-                        .foregroundStyle(WorkspaceStyle.accent)
+                        .buttonStyle(WorkspaceButtonStyle())
                         .accessibilityLabel("Open tart on GitHub")
                 }
             }

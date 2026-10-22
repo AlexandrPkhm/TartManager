@@ -37,16 +37,27 @@ import Foundation
         #expect(BundledTartLocation.executablePath(inAppBundle: bundle) == nil)
     }
 
-    @Test func findsLicenseInsideAppBundle() {
-        let bundle = makeAppBundle()
-        let path = bundle.appendingPathComponent(BundledTartLocation.relativeLicensePath).path
+    private func writeTartInfo(in bundle: URL, version: String) {
+        let url = bundle.appendingPathComponent(BundledTartLocation.relativeInfoPlistPath)
         try! FileManager.default.createDirectory(
-            atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        try! "license\n".write(toFile: path, atomically: true, encoding: .utf8)
-        #expect(BundledTartLocation.licensePath(inAppBundle: bundle) == path)
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let info: NSDictionary = ["CFBundleShortVersionString": version]
+        try! info.write(to: url)
     }
 
-    @Test func licenseIsNilWithoutFile() {
-        #expect(BundledTartLocation.licensePath(inAppBundle: makeAppBundle()) == nil)
+    @Test func readsVersionFromTartInfoPlist() {
+        let bundle = makeAppBundle()
+        writeTartInfo(in: bundle, version: "2.41.1")
+        #expect(BundledTartLocation.declaredVersion(inAppBundle: bundle) == "2.41.1")
+    }
+
+    @Test func versionIsNilWithoutInfoPlist() {
+        #expect(BundledTartLocation.declaredVersion(inAppBundle: makeAppBundle()) == nil)
+    }
+
+    @Test func versionIsNilWhenNotXYZ() {
+        let bundle = makeAppBundle()
+        writeTartInfo(in: bundle, version: "2.41.1/../../evil")
+        #expect(BundledTartLocation.declaredVersion(inAppBundle: bundle) == nil)
     }
 }

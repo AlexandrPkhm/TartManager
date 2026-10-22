@@ -9,7 +9,7 @@
 #   2. Bundled tart     download the tart release pinned in Scripts/tart-pin.env,
 #                       check its SHA-256, signature, and LICENSE
 #   3. Bundle assembly  assemble "Tart Manager.app" (binary, icon, Info.plist,
-#                       Sparkle.framework, the unchanged tart.app and its license)
+#                       Sparkle.framework, the unchanged tart.app)
 #   4. Code signing     ad-hoc by default; --sign for a Developer ID identity.
 #                       Nested Sparkle code is signed inside-out, never --deep.
 #                       tart.app keeps its own Developer ID signature.
@@ -465,14 +465,15 @@ prepare_tart() {
         fail "tart $TART_VERSION LICENSE differs from $TART_LICENSE_REF"
 }
 
-# Embeds the verified tart.app unchanged, with its license. The copy keeps the
-# upstream signature: nothing here or in sign_app re-signs it.
+# Embeds the verified tart.app unchanged. The copy keeps the upstream
+# signature: nothing here or in sign_app re-signs it. FSL-1.1-ALv2 accepts a
+# link to its terms, so the About tab links to the release's LICENSE instead
+# of a copy in the bundle.
 embed_tart() {
     local bundle="$1"
     [[ -n "$TART_EXTRACTED" ]] || fail "embed_tart needs prepare_tart first"
     mkdir -p "$bundle/Contents/Helpers"
     ditto "$TART_EXTRACTED/tart.app" "$bundle/Contents/Helpers/tart.app"
-    cp "$TART_LICENSE_REF" "$bundle/Contents/Resources/tart-LICENSE.txt"
 }
 
 # Signs one path. Ad-hoc signing never uses the hardened runtime: Library
