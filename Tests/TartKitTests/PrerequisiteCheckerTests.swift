@@ -55,6 +55,48 @@ import Foundation
         #expect(report.active == .missing(source: .bundled))
     }
 
+    @Test func workingSelectedBundledSkipsTheInstalledTart() {
+        let bundled = StubBinary.tartVersionStub(output: "2.41.1")
+        let installed = StubBinary.makeRecordingStub()
+        let report = makeChecker(bundled: bundled, wellKnown: [installed.stubPath])
+            .check(preference: preference(.bundled))
+        #expect(report.installed == nil)
+        #expect(report.other == nil)
+        #expect(report.active.isSatisfied)
+        #expect(!FileManager.default.fileExists(atPath: installed.invocationFile))
+    }
+
+    @Test func workingSelectedBundledSkipsTheCustomPath() {
+        let bundled = StubBinary.tartVersionStub(output: "2.41.1")
+        let report = makeChecker(bundled: bundled)
+            .check(preference: preference(.bundled, customPath: "/nonexistent/tart"))
+        #expect(report.installed == nil)
+    }
+
+    @Test func noStoredPreferenceChecksBothSources() {
+        let bundled = StubBinary.tartVersionStub(output: "2.41.1")
+        let installed = StubBinary.tartVersionStub(output: "2.32.1")
+        let report = makeChecker(bundled: bundled, wellKnown: [installed])
+            .check(preference: preference(nil))
+        #expect(report.bundled?.isSatisfied == true)
+        #expect(report.installed == .ok(version: Self.v2321, binaryPath: installed, source: .installed))
+    }
+
+    @Test func outdatedSelectedBundledChecksTheInstalledTart() {
+        let bundled = StubBinary.tartVersionStub(output: "1.9.0")
+        let installed = StubBinary.tartVersionStub(output: "2.32.1")
+        let report = makeChecker(bundled: bundled, wellKnown: [installed])
+            .check(preference: preference(.bundled))
+        #expect(report.installed == .ok(version: Self.v2321, binaryPath: installed, source: .installed))
+    }
+
+    @Test func absentSelectedBundledChecksTheInstalledTart() {
+        let installed = StubBinary.tartVersionStub(output: "2.32.1")
+        let report = makeChecker(bundled: nil, wellKnown: [installed])
+            .check(preference: preference(.bundled))
+        #expect(report.installed == .ok(version: Self.v2321, binaryPath: installed, source: .installed))
+    }
+
     @Test func bundledSelectedNeverFallsBack() {
         let bundled = StubBinary.tartVersionStub(output: "2.41.1")
         let installed = StubBinary.tartVersionStub(output: "2.32.1")

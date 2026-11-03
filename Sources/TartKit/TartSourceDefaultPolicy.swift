@@ -19,7 +19,7 @@ public enum TartSourceDefaultPolicy {
     public static func decide(_ report: TartRuntimeReport) -> Decision {
         guard report.storedPreference == nil else { return .keep }
         guard let bundled = report.bundled else { return .store(.installed) }
-        switch (bundled.isSatisfied, report.installed.isSatisfied) {
+        switch (bundled.isSatisfied, report.installed?.isSatisfied == true) {
         case (true, true): return .ask
         case (false, true): return .store(.installed)
         case (_, false): return .store(.bundled)

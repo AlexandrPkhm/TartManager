@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Changed
+
+- Changed **Delete VM**: you no longer type the VM's name to confirm, and a
+  new **Remove the VM disk with the VM** option (on by default) lets you keep
+  the disk as a file in the `Kept Disks` folder of the VM storage folder. The
+  option is not available for stacked VMs.
+- Changed the launch check: Tart Manager no longer looks for an installed tart
+  while the selected bundled tart works. The warning about an older selected
+  tart does not show in this state.
+
 ## 1.3.0 - 2026-10-22
 
 ### Added

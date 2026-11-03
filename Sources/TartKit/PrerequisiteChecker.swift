@@ -10,6 +10,11 @@ import os
 ///   `.invalidCustomPath`, never a silent detection. Without a custom path,
 ///   `TartLocator` detects tart; a failure is `.missing(.installed)`.
 ///
+/// The installed tart is not checked when the bundled tart is selected and
+/// works: nothing needs it, so no scan and no extra subprocess run. A stored
+/// preference is required for this. Without one, `TartSourceDefaultPolicy`
+/// compares both sources.
+///
 /// The selected source never falls back to the other one. Every result is
 /// logged in `tartRuntime` with its cause, and the user home shown as `~`.
 public struct PrerequisiteChecker: Sendable {
@@ -37,9 +42,17 @@ public struct PrerequisiteChecker: Sendable {
     /// `ProcessRunner.defaultTimeout`. Callers must run it off the main actor
     /// (`Task.detached`).
     public func check(preference: TartSourcePreference) -> TartRuntimeReport {
+        let bundled = checkBundled()
+        let installed: TartPrerequisiteStatus?
+        if preference.source == .bundled, bundled?.isSatisfied == true {
+            Logger.tartRuntime.info("installed: not checked; the selected bundled tart works")
+            installed = nil
+        } else {
+            installed = checkInstalled(customPath: preference.customPath)
+        }
         let report = TartRuntimeReport(
-            bundled: checkBundled(),
-            installed: checkInstalled(customPath: preference.customPath),
+            bundled: bundled,
+            installed: installed,
             selected: preference.source ?? .installed,
             storedPreference: preference.source)
         let stored = preference.source?.rawValue ?? "none"

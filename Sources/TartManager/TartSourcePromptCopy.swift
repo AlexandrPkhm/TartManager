@@ -18,7 +18,7 @@ struct TartSourcePromptCopy: Equatable {
     init(report: TartRuntimeReport) {
         bundledDetail = Self.versionText(report.bundled)
         installedDetail = Self.versionText(report.installed)
-        installedPath = report.installed.binaryPath ?? ""
+        installedPath = report.installed?.binaryPath ?? ""
         warning = TartSettingsCopy.versionWarning(TartVersionSkewPolicy.evaluate(report))
     }
 
