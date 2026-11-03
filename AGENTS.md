@@ -61,6 +61,8 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
+├── Catalog/
+│   └── default-registry-images.json # Image list that released apps download
 ├── Scripts/
 │   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
 │   │                              # bundle, Sparkle, signing, DMG, signed appcast
@@ -308,6 +310,12 @@ environment.
 - Treat registry credentials and notarization environment variables as secrets:
   never hardcode, log, or persist them outside the operating system's intended
   credential facilities.
+- `Catalog/default-registry-images.json` is live data: released apps download
+  it from `main`. Keep `schemaVersion` at `1` unless old apps can ignore the
+  change, and list only `ghcr.io/cirruslabs/` references.
+  `DefaultRegistryCatalog` rejects all others.
+- `registryMode` lives in `AppSettings`. Set it only through
+  `AppModel.setRegistryMode(_:)`.
 - Sparkle owns the `SUEnableAutomaticChecks`, `SULastCheckTime`, and
   `SUSkippedVersion` preference keys. Do not add duplicate keys to
   `AppSettings`; read and write them through `SPUUpdater` in

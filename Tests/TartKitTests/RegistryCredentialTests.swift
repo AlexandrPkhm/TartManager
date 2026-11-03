@@ -71,6 +71,23 @@ import Foundation
         #expect(!RegistryCredentialRules.isValidHost(""))
     }
 
+    @Test func normalizedHostAcceptsHostsAndHttpsURLs() {
+        #expect(RegistryCredentialRules.normalizedHost(from: "ghcr.io") == "ghcr.io")
+        #expect(RegistryCredentialRules.normalizedHost(from: " ghcr.io\n") == "ghcr.io")
+        #expect(RegistryCredentialRules.normalizedHost(from: "https://ghcr.io") == "ghcr.io")
+        #expect(RegistryCredentialRules.normalizedHost(from: "HTTPS://ghcr.io/") == "ghcr.io")
+        #expect(RegistryCredentialRules.normalizedHost(from: "registry.example.com:5000")
+                == "registry.example.com:5000")
+    }
+
+    @Test func normalizedHostRejectsEverythingElse() {
+        for input in ["", "   ", "https://", "http://ghcr.io", "ftp://ghcr.io", "ghcr.io/cirruslabs",
+                      "https://ghcr.io/v2/", "user@ghcr.io", "ghcr.io?x=1", "ghcr.io#x",
+                      "-evil", "gh cr.io"] {
+            #expect(RegistryCredentialRules.normalizedHost(from: input) == nil, "\(input)")
+        }
+    }
+
     @Test func scrubberReplacesSecretAndItsBase64Encoding() {
         let secret = "tok-123"
         let text = "login failed for tok-123 (\(Data(secret.utf8).base64EncodedString()))"

@@ -619,12 +619,36 @@ extension TartClient {
         onProgress: @escaping @Sendable (PullProgress) -> Void,
         registerCancel: (@escaping @Sendable () -> Void) -> Void = { _ in }
     ) throws -> CloneExit {
+        try runRegistryTransfer(arguments: ["clone", source, name], command: "clone",
+                                onProgress: onProgress, registerCancel: registerCancel)
+    }
+
+    /// Runs `tart pull <reference>` to completion, which stores the image in
+    /// tart's OCI cache. Progress, cancellation, and failures work as in
+    /// `clone`, with the operation label "pull".
+    public func pull(
+        reference: String,
+        onProgress: @escaping @Sendable (PullProgress) -> Void,
+        registerCancel: (@escaping @Sendable () -> Void) -> Void = { _ in }
+    ) throws -> CloneExit {
+        try Self.rejectLeadingDash(command: "pull", values: [reference])
+        return try runRegistryTransfer(arguments: ["pull", reference], command: "pull",
+                                       onProgress: onProgress, registerCancel: registerCancel)
+    }
+
+    /// The streaming body that `clone` and `pull` share.
+    private func runRegistryTransfer(
+        arguments: [String],
+        command: String,
+        onProgress: @escaping @Sendable (PullProgress) -> Void,
+        registerCancel: (@escaping @Sendable () -> Void) -> Void
+    ) throws -> CloneExit {
         let tracker = PullProgressTracker()
         let process: StreamingProcess
         do {
             process = try StreamingProcess.launch(
                 binaryPath: binaryPath,
-                arguments: ["clone", source, name],
+                arguments: arguments,
                 environment: environment,
                 onOutput: { chunk in
                     if let progress = tracker.consume(chunk) {
@@ -633,10 +657,10 @@ extension TartClient {
                 })
         } catch let error as ProcessRunnerError {
             // Mirrors Issue 3's `mapping(_:command:)` — every launch failure
-            // here reads "clone" (finding 16).
+            // here reads the operation label (finding 16).
             switch error {
             case .failedToLaunch:
-                throw TartClientError.launchFailed(command: "clone", executable: binaryPath)
+                throw TartClientError.launchFailed(command: command, executable: binaryPath)
             case .timedOut(let command, let timeout):
                 throw TartClientError.timedOut(command: command, timeout: timeout)
             case .inputWriteFailed(let command):
@@ -650,7 +674,7 @@ extension TartClient {
         }
         guard exitCode == 0 else {
             throw TartClientError.commandFailed(
-                command: "clone", exitCode: exitCode,
+                command: command, exitCode: exitCode,
                 stdout: process.combinedOutput,
                 stderr: tracker.failureLine ?? "")
         }

@@ -42,6 +42,15 @@ public struct AppSettings {
         }
     }
 
+    static let registryModeKey = "registryMode"
+
+    /// The Registries panel mode; missing or unknown values use the default
+    /// registry. Set only through `AppModel.setRegistryMode(_:)`.
+    public var registryMode: RegistryMode {
+        get { RegistryMode(rawValue: defaults.string(forKey: Self.registryModeKey) ?? "") ?? .standard }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.registryModeKey) }
+    }
+
     static let tartSourceKey = "tartSource"
     static let tartCustomPathKey = "tartCustomPath"
 

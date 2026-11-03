@@ -8,6 +8,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Added a **Default / Custom** choice to Settings → Storage → Registries.
+  **Default** shows the images of `ghcr.io/cirruslabs` and a **Pull** button.
+  **Custom** signs in to or out of a registry that you enter.
+- Added pull jobs to the **Jobs** section, with progress and cancel.
+
+### Changed
+
+- Changed the Registry URL field to accept an `https` URL as well as a host.
+- Changed the New VM quick picks to show the same image list as Settings. Tart
+  Manager now downloads this list from `raw.githubusercontent.com` at most once
+  in 24 hours.
+
 ## 1.3.0 - 2026-10-22
 
 ### Added

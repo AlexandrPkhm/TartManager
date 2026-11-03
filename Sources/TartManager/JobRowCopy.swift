@@ -55,6 +55,8 @@ struct JobRowCopy: Equatable {
             return "Replacing the disk of “\(name)”"
         case .prune:
             return "Pruning caches"
+        case .pull(let reference):
+            return "Pulling \(shortSource(reference))"
         }
     }
 

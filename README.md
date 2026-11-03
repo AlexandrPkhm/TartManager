@@ -37,10 +37,12 @@ inventory a macOS interface.
 - Configure VM resources, hardware identity, and shared folders; replace a
   stopped VM's disk when needed.
 - Create, restore, and remove snapshots before experimenting with a VM.
-- Watch clone, import, export, create, and cache-cleanup jobs in the sidebar
-  **Jobs** section, and cancel a job that you no longer need.
-- Manage registry sign-in, cache cleanup, storage location, and appearance in
-  Settings.
+- Pull images from `ghcr.io/cirruslabs` in **Settings → Storage →
+  Registries**, then clone them from the Images page.
+- Watch clone, pull, import, export, create, and cache-cleanup jobs in the
+  sidebar **Jobs** section, and cancel a job that you no longer need.
+- Manage custom registry sign-in, cache cleanup, storage location, and
+  appearance in Settings.
 - Control common VM actions from the macOS menu bar while retaining the same
   safety checks as the main app.
 

@@ -564,10 +564,15 @@ Production machines must allow outbound HTTPS from the `tart` process to:
 - IPSW restore-image endpoints, when VMs are created from IPSW (`tart create
   --from-ipsw`)
 
-The tart CLI starts that traffic. The app itself connects only to GitHub for
-updates: `github.com` and the release-asset download host it redirects to
-(`release-assets.githubusercontent.com` or `objects.githubusercontent.com`).
-Update checks send no system profile; GitHub receives the IP address and the
+The tart CLI starts that traffic. The app itself connects only to GitHub:
+
+- For updates: `github.com` and the release-asset download host it redirects to
+  (`release-assets.githubusercontent.com` or `objects.githubusercontent.com`).
+- For the default registry's image list: `raw.githubusercontent.com`, at most
+  once in 24 hours while the Registries panel or the New VM sheet is open. If
+  this host is blocked, the app uses its saved or built-in list.
+
+These requests send no system profile; GitHub receives the IP address and the
 user agent.
 
 ## Error Reporting

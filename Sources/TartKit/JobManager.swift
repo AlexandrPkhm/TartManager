@@ -12,6 +12,7 @@ public struct JobInfo: Identifiable, Equatable, Sendable {
         case deleteVM(name: String)
         case replaceDisk(name: String, path: String)
         case prune
+        case pull(reference: String)
 
         /// The guarded resource name: one heavy job per target at a time.
         /// Derived here so call sites can never pass a mismatched pair
@@ -27,6 +28,8 @@ public struct JobInfo: Identifiable, Equatable, Sendable {
             case .replaceDisk(let name, _): return name
             case .prune:
                 return "prune:caches"   // namespaced single-flight key — never a VM name (finding 5)
+            case .pull(let reference):
+                return "pull:\(reference)" // namespaced: a reference is never a VM name
             }
         }
 
@@ -42,6 +45,7 @@ public struct JobInfo: Identifiable, Equatable, Sendable {
             case .replaceDisk: return "set"
             case .prune:
                 return "prune"          // failure-normalization label (finding 8)
+            case .pull: return "pull"
             }
         }
 
@@ -56,7 +60,7 @@ public struct JobInfo: Identifiable, Equatable, Sendable {
         /// `DiskSpacePolicy` in the preflight; the kind carries no estimate.
         public var estimatedDiskNeedBytes: Int64? {
             switch self {
-            case .clone: return DiskSpacePolicy.remoteImageEstimateBytes
+            case .clone, .pull: return DiskSpacePolicy.remoteImageEstimateBytes
             case .importArchive, .exportSnapshot, .restoreSnapshot: return nil
             case .createFromIPSW: return nil
             case .deleteVM: return nil
@@ -80,7 +84,7 @@ public struct JobInfo: Identifiable, Equatable, Sendable {
         public var isCancellable: Bool {
             switch self {
             case .restoreSnapshot, .deleteVM, .replaceDisk: return false
-            case .clone, .importArchive, .exportSnapshot, .createFromIPSW, .prune: return true
+            case .clone, .importArchive, .exportSnapshot, .createFromIPSW, .prune, .pull: return true
             }
         }
     }
@@ -359,6 +363,23 @@ extension JobManager {
         switch start(kind: kind, body: { context in
             _ = try client.clone(
                 source: source, to: name,
+                onProgress: { context.report($0) },
+                registerCancel: { context.registerCancel($0) })
+        }) {
+        case .started(let job):
+            return job
+        case .duplicateTarget:
+            return nil
+        }
+    }
+
+    /// Starts a `tart pull` job. Returns nil when the same image is already
+    /// being pulled.
+    @discardableResult
+    public func startPull(reference: String, using client: TartClient) -> JobInfo? {
+        switch start(kind: .pull(reference: reference), body: { context in
+            _ = try client.pull(
+                reference: reference,
                 onProgress: { context.report($0) },
                 registerCancel: { context.registerCancel($0) })
         }) {

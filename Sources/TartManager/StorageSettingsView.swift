@@ -7,14 +7,6 @@ struct StorageSettingsView: View {
     @State private var snapshotValidation: StorageValidation?
     @State private var confirmingPrune = false
     @State private var prunePolicyForConfirmation: CachePrunePolicy = .manual
-    @State private var registryHost = "ghcr.io"
-    @State private var registryUsername = ""
-    @State private var registryPassword = ""
-
-    /// tart (or the storage configuration) unavailable: both buttons are
-    /// disabled and the footnote explains why — no click can dead-end
-    /// silently.
-    private var tartUnavailable: Bool { model.makeTartClient() == nil }
 
     var body: some View {
         SettingsPage {
@@ -35,64 +27,7 @@ struct StorageSettingsView: View {
                     }
                 }
             }
-            SettingsPanel(title: "Registries") {
-                LabeledContent("Host") {
-                    TextField("e.g. ghcr.io", text: $registryHost)
-                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 280)
-                }
-                LabeledContent("Username") {
-                    TextField("Username", text: $registryUsername)
-                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 280)
-                }
-                LabeledContent("Password / token") {
-                    SecureField("Password / token", text: $registryPassword)
-                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 280)
-                }
-                if !RegistryCredentialRules.isValidHost(registryHost) {
-                    Text("The host must not start with “-” or contain spaces.")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                HStack {
-                    Button("Sign In") {
-                        // Snapshot BEFORE the Task: the Task body runs
-                        // asynchronously and would read the cleared @State
-                        // values; the captured locals live exactly as long as
-                        // the operation, and the UI state is cleared
-                        // synchronously — the secret never lingers.
-                        let host = registryHost
-                        let username = registryUsername
-                        let password = registryPassword
-                        registryPassword = ""
-                        Task {
-                            await model.registryLogin(host: host,
-                                                      username: username,
-                                                      password: password)
-                        }
-                    }
-                    .disabled(model.registryOperationInFlight
-                              || tartUnavailable
-                              || !RegistryCredentialRules.isValidHost(registryHost)
-                              || registryUsername.isEmpty
-                              || registryPassword.isEmpty)
-                    Spacer()
-                    Button("Sign Out", role: .destructive) {
-                        let host = registryHost
-                        Task { await model.registryLogout(host: host) }
-                    }
-                    .disabled(model.registryOperationInFlight
-                              || tartUnavailable
-                              || !RegistryCredentialRules.isValidHost(registryHost))
-                }
-                Text("Signing in stores the credentials in tart's macOS Keychain, not in Tart Manager. tart can't list logged-in hosts, so sessions aren't shown here — sign in or out per host.")
-                    .font(.footnote)
-                    .foregroundStyle(WorkspaceStyle.muted)
-                if tartUnavailable {
-                    Text("Registry sign-in is disabled while tart or the storage configuration is unavailable.")
-                        .font(.footnote)
-                        .foregroundStyle(WorkspaceStyle.muted)
-                }
-            }
+            RegistrySettingsPanel()
             SettingsPanel(title: "Snapshots") {
                 LabeledContent("Snapshots") {
                     if let folder = model.resolvedSnapshotsFolder {
