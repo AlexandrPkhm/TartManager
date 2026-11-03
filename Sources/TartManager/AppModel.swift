@@ -1509,6 +1509,10 @@ final class AppModel: ObservableObject {
     /// True when a delete could start right now: a stopped local VM with a
     /// usable tart and available storage (PRD Story 1 AC-6: actions disabled
     /// until storage resolves). The sheet disables its Delete button on this.
+    var keptDisksFolder: String? {
+        commandEnvironment.flatMap { VMKeptDisk.folder(environment: $0.environment) }
+    }
+
     func canDelete(vm: VMEntry) -> Bool {
         guard vm.isStoppedLocal else { return false }
         guard makeTartClient() != nil else { return false }
@@ -1527,22 +1531,13 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    /// Deletes a stopped VM as an uncancellable job. The typed confirmation
-    /// is re-verified at this boundary (finding 8) — the view's gate is UX,
-    /// this is the model invariant. Every refusal is logged and presented
-    /// through the standard sheet — no silent no-ops (finding 5). The job
-    /// body calls only the injected ops, wired to TartClient.delete
+    /// Deletes a stopped VM as an uncancellable job. `removeDisk == false`
+    /// saves the disk in `keptDisksFolder` first. Every refusal is logged and
+    /// presented through the standard sheet — no silent no-ops (finding 5).
+    /// The job body calls only the injected ops, wired to TartClient.delete
     /// (finding 1): no argv or error construction exists in this layer.
     @discardableResult
-    func startDelete(vm: VMEntry, confirmation: String) -> JobInfo? {
-        guard TypedConfirmationGate.allowsProceed(typedName: confirmation, vmName: vm.name) else {
-            Logger.deleteVM.error("delete refused for \(vm.name, privacy: .public): typed confirmation mismatch")
-            present(TartOperationError(
-                operation: "delete",
-                message: "Delete refused — the typed name does not match the VM.",
-                rawDetails: ""))
-            return nil
-        }
+    func startDelete(vm: VMEntry, removeDisk: Bool) -> JobInfo? {
         guard vm.isStoppedLocal else {
             Logger.deleteVM.error("delete refused for \(vm.name, privacy: .public): not a stopped local VM")
             present(TartOperationError(
@@ -1561,11 +1556,15 @@ final class AppModel: ObservableObject {
         }
         guard let client = makeTartClient() else { return nil }
 
+        let environment = client.environment
         let job = VMDeleteJob(
             name: vm.name,
+            keepDisk: !removeDisk,
             ops: VMDeleteJob.Ops(
                 list: { try client.list() },
-                delete: { name, timeout in try client.delete(name: name, timeout: timeout) }))
+                delete: { name, timeout in try client.delete(name: name, timeout: timeout) },
+                keepDisk: { name in try VMKeptDisk.keep(vmName: name, environment: environment) },
+                discardKeptDisk: { path in try VMKeptDisk.discard(path: path) }))
         switch jobManager.start(kind: .deleteVM(name: vm.name), body: { context in
             try job.run(context: context)
         }) {

@@ -22,21 +22,33 @@ public struct VMDeleteJob: Sendable {
     public struct Ops: Sendable {
         public var list: @Sendable () throws -> [VMEntry]
         public var delete: @Sendable (String, TimeInterval) throws -> Void
+        /// Saves the VM's disk outside the VM folder and returns its path.
+        public var keepDisk: @Sendable (String) throws -> String
+        /// Removes a saved disk after a delete that failed.
+        public var discardKeptDisk: @Sendable (String) throws -> Void
 
         public init(list: @escaping @Sendable () throws -> [VMEntry],
-                    delete: @escaping @Sendable (String, TimeInterval) throws -> Void) {
+                    delete: @escaping @Sendable (String, TimeInterval) throws -> Void,
+                    keepDisk: @escaping @Sendable (String) throws -> String,
+                    discardKeptDisk: @escaping @Sendable (String) throws -> Void) {
             self.list = list
             self.delete = delete
+            self.keepDisk = keepDisk
+            self.discardKeptDisk = discardKeptDisk
         }
     }
 
     public let name: String
+    /// `true` saves the VM's disk with `ops.keepDisk` before `tart delete`,
+    /// which always removes the whole VM folder.
+    public let keepDisk: Bool
     public let ops: Ops
 
     private static let log = Logger.deleteVM
 
-    public init(name: String, ops: Ops) {
+    public init(name: String, keepDisk: Bool = false, ops: Ops) {
         self.name = name
+        self.keepDisk = keepDisk
         self.ops = ops
     }
 
@@ -61,6 +73,22 @@ public struct VMDeleteJob: Sendable {
             return
         }
 
+        // Saved before the delete: a failure here leaves the VM unchanged.
+        var keptDiskPath: String?
+        if keepDisk {
+            do {
+                let path = try ops.keepDisk(name)
+                keptDiskPath = path
+                Self.log.notice("delete: kept the disk of \(name, privacy: .public) at \(path, privacy: .public)")
+            } catch {
+                Self.log.error("delete refused for \(name, privacy: .public): cannot keep the disk — \(String(describing: error), privacy: .public)")
+                throw TartClientError.commandFailed(
+                    command: "delete", exitCode: -1, stdout: "",
+                    stderr: "Delete refused — cannot keep the disk of " + name + ": "
+                        + String(describing: error))
+            }
+        }
+
         context.report(PullProgress(fraction: nil, note: "deleting…"))
         Self.log.notice("delete: starting \(name, privacy: .public)")
         let began = Date()
@@ -78,6 +106,13 @@ public struct VMDeleteJob: Sendable {
             if !stillPresent {
                 Self.log.notice("delete: \(name, privacy: .public) disappeared mid-action after \(String(format: "%.1f", duration), privacy: .public)s — clean no-op")
                 return
+            }
+            if let keptDiskPath {
+                do {
+                    try ops.discardKeptDisk(keptDiskPath)
+                } catch {
+                    Self.log.error("delete: cannot remove the kept disk at \(keptDiskPath, privacy: .public): \(String(describing: error), privacy: .public)")
+                }
             }
             Self.log.error("delete: failed after \(String(format: "%.1f", duration), privacy: .public)s — \(String(describing: failure), privacy: .public)")
             throw failure

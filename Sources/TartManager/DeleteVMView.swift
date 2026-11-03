@@ -1,18 +1,18 @@
 import SwiftUI
 import TartKit
 
-/// Red typed-name deletion confirmation. The sheet renders only: the gate
-/// itself is `TypedConfirmationGate` (shared with the model boundary
-/// re-verification in `AppModel.startDelete`) and startability flows from
-/// `model.canDelete(vm:)` — the button never enables into a silent no-op.
+/// Red deletion confirmation with the disk choice. The sheet renders only:
+/// startability flows from `model.canDelete(vm:)` — the button never enables
+/// into a silent no-op. Delete is not the default button, so Return cannot
+/// delete a VM.
 struct DeleteVMView: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let vm: VMEntry
-    @State private var typedName = ""
+    @State private var removeDisk = true
 
-    private var confirmed: Bool {
-        TypedConfirmationGate.allowsProceed(typedName: typedName, vmName: vm.name)
+    private var copy: DeleteVMCopy {
+        DeleteVMCopy(removeDisk: removeDisk, keptDisksFolder: model.keptDisksFolder)
     }
 
     private var availabilityHint: String? {
@@ -38,12 +38,15 @@ struct DeleteVMView: View {
                 }
             }
             Section {
-                // Finding 6: the shared red typed-name confirmation section.
-                DestructiveConfirmSection(
-                    warning: "This permanently removes the VM and all of its data. "
-                        + "Snapshots on the snapshots folder are not touched.",
-                    prompt: "Type “\(vm.name)” to confirm",
-                    typedName: $typedName)
+                Label(copy.warning, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Toggle(DeleteVMCopy.removeDiskLabel, isOn: $removeDisk)
+                if let caption = copy.keptDiskCaption {
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
                 if let availabilityHint {
                     Label(availabilityHint, systemImage: "xmark.octagon")
                         .foregroundStyle(.red)
@@ -59,10 +62,11 @@ struct DeleteVMView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Delete", role: .destructive) {
-                    model.startDelete(vm: vm, confirmation: typedName)
+                    model.startDelete(vm: vm, removeDisk: removeDisk)
                     dismiss()
                 }
-                .disabled(!confirmed || !model.canDelete(vm: vm))
+                .keyboardShortcut(nil)
+                .disabled(!model.canDelete(vm: vm))
             }
         }
     }

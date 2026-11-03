@@ -110,7 +110,9 @@ switch to it. Tart Manager never switches by itself.
 When both tarts work, Tart Manager asks once which one to use. Until you
 answer, it keeps the installed tart. Settings and this question warn you
 when the selected tart is older than the other one, because VMs that a
-newer tart changed can fail to open with an older tart.
+newer tart changed can fail to open with an older tart. While the selected
+bundled tart works, Tart Manager does not look for the installed tart, so this
+warning does not show for the bundled tart.
 
 ## Using your VMs
 
@@ -126,6 +128,10 @@ newer tart changed can fail to open with an older tart.
   window, and frees its memory. **Resume** continues the session with no cold
   boot. Tart Manager shows **Suspend** only when it can confirm that the VM
   runs with `--suspendable`.
+- **Deleting a VM:** **Delete…** (in the context menu of a stopped VM) asks
+  you to confirm. **Remove the VM disk with the VM** is on by default. Turn it
+  off to keep the disk as `<VM name>.img` in the `Kept Disks` folder of the VM
+  storage folder. The kept disk uses disk space until you delete the file.
 - **Replacing a disk:** **Replace Disk** (in the context menu of a stopped
   VM) copies a raw disk image (`.img`) over the VM's disk and permanently
   deletes the old contents. You must type the VM's name to confirm. Stop a
