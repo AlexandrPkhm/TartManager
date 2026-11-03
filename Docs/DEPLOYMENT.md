@@ -436,9 +436,9 @@ signing identity, so plan for a manual install after any key change.
 | VM storage volume | Local filesystem | Existing, writable directory | Chosen at first launch (default `~/.tart`) |
 
 There are no databases, cache servers, message queues, or object-storage
-services. The app itself writes no data files outside UserDefaults and
-temporary run logs; all VM state lives under the configured storage path and
-is managed by the `tart` CLI.
+services. The app itself writes only UserDefaults, temporary run logs, and a
+saved copy of the default registry's image list in Application Support. All VM
+state lives under the configured storage path and is managed by the `tart` CLI.
 
 ### Operating system
 

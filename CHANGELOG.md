@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 1.4.0 - 2026-11-03
+
 ### Added
 
 - Added a **Default / Custom** choice to Settings → Storage → Registries.
