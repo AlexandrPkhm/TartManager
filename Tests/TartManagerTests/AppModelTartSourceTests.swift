@@ -89,6 +89,29 @@ import Foundation
         }
     }
 
+    // MARK: Bundled selected
+
+    @Test func storedBundledDoesNotLookForTheInstalledTart() async {
+        let fixture = makeFixture(bundled: TartStub(version: "2.41.1"),
+                                  installed: TartStub(version: "2.42.0"),
+                                  storedSource: .bundled)
+        await check(fixture.model)
+        #expect(fixture.model.tartReport?.installed == nil)
+        #expect(fixture.model.prerequisite?.source == .bundled)
+        #expect(fixture.model.prerequisite?.isSatisfied == true)
+    }
+
+    @Test func switchToInstalledFindsTheInstalledTart() async {
+        let fixture = makeFixture(bundled: TartStub(version: "2.41.1"),
+                                  installed: TartStub(version: "2.32.1"),
+                                  storedSource: .bundled)
+        await check(fixture.model)
+        fixture.model.setTartSource(.installed)
+        await waitForCheck(fixture.model)
+        #expect(fixture.model.prerequisite?.source == .installed)
+        #expect(fixture.model.prerequisite?.isSatisfied == true)
+    }
+
     // MARK: Default source
 
     @Test func firstCheckWithBothOkPromptsAndUsesInstalled() async {

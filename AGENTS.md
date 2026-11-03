@@ -152,7 +152,9 @@ virtualization.
   decision through `UpdateInstallGate`.
 - Resolve tart only through `PrerequisiteChecker.check(preference:)`, which
   checks the bundled tart (`Contents/Helpers/tart.app`) and the installed
-  tart together. Never fall back from the selected source to the other
+  tart together, except when the stored source is the bundled tart and it
+  works: then `TartRuntimeReport.installed` is `nil` and no scan runs. Never
+  fall back from the selected source to the other
   one; report the failure and offer the switch. Gate every source or
   custom-path change with `TartSourceSwitchGate` in `AppModel`.
 - Route Dock-icon and main-window decisions through
@@ -264,8 +266,8 @@ environment.
   only counts and mount tags.
 - Do not create silent no-ops: log and/or present every gate refusal, race
   reconciliation, and deliberate degradation. Re-verify destructive operations
-  with `TypedConfirmationGate`, `RestoreGate`, `ReplaceDiskGuard`, or
-  `CloneGuard` at the model boundary.
+  with `RestoreGate`, `ReplaceDiskGuard`, or `CloneGuard` at the model
+  boundary.
 
 ### Testing
 

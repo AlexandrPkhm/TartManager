@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Shared red typed-name confirmation section for the destructive sheets
-/// (Replace Disk, Delete VM, Restore Snapshot) — one implementation of the
-/// red warning + typed-name field instead of a fourth copy (finding 6).
+/// (Replace Disk, Restore Snapshot) — one implementation of the red warning
+/// + typed-name field (finding 6).
 /// Purely presentational: the gate logic stays in the tested TartKit
 /// functions each sheet already uses.
 struct DestructiveConfirmSection: View {
