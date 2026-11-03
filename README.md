@@ -131,7 +131,8 @@ warning does not show for the bundled tart.
 - **Deleting a VM:** **Delete…** (in the context menu of a stopped VM) asks
   you to confirm. **Remove the VM disk with the VM** is on by default. Turn it
   off to keep the disk as `<VM name>.img` in the `Kept Disks` folder of the VM
-  storage folder. The kept disk uses disk space until you delete the file.
+  storage folder. The kept disk uses disk space until you delete the file. A
+  stacked VM has no standalone disk, so this option is not available for it.
 - **Replacing a disk:** **Replace Disk** (in the context menu of a stopped
   VM) copies a raw disk image (`.img`) over the VM's disk and permanently
   deletes the old contents. You must type the VM's name to confirm. Stop a

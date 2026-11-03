@@ -47,11 +47,29 @@ import Foundation
         try disk.write(toFile: directory + "/disk.img", atomically: true, encoding: .utf8)
     }
 
-    @Test func missingDiskIsAnError() throws {
+    @Test func stackedVMCannotKeepItsDisk() throws {
+        // Finding P1: tart's stacked layout has no disk.img.
         let home = try makeHome(disk: nil)
-        #expect(throws: VMKeptDisk.KeepError.noDisk(path: home + "/vms/vm-a/disk.img")) {
-            try VMKeptDisk.keep(vmName: "vm-a", environment: ["TART_HOME": home])
+        try "overlay".write(toFile: home + "/vms/vm-a/overlay.asif", atomically: true, encoding: .utf8)
+        try "{}".write(toFile: home + "/vms/vm-a/manifest.json", atomically: true, encoding: .utf8)
+        let environment = ["TART_HOME": home]
+        #expect(!VMKeptDisk.canKeep(vmName: "vm-a", environment: environment))
+        #expect(throws: VMKeptDisk.KeepError.notStandalone) {
+            try VMKeptDisk.keep(vmName: "vm-a", environment: environment)
         }
+        #expect(!FileManager.default.fileExists(atPath: home + "/Kept Disks"))
+    }
+
+    @Test func diskWithOverlayIsNotStandalone() throws {
+        let home = try makeHome()
+        try "overlay".write(toFile: home + "/vms/vm-a/overlay.asif", atomically: true, encoding: .utf8)
+        #expect(!VMKeptDisk.canKeep(vmName: "vm-a", environment: ["TART_HOME": home]))
+    }
+
+    @Test func pulledStandaloneVMWithManifestCanKeepItsDisk() throws {
+        let home = try makeHome()
+        try "{}".write(toFile: home + "/vms/vm-a/manifest.json", atomically: true, encoding: .utf8)
+        #expect(VMKeptDisk.canKeep(vmName: "vm-a", environment: ["TART_HOME": home]))
     }
 
     @Test func missingStorageIsAnError() throws {
@@ -64,12 +82,46 @@ import Foundation
         }
     }
 
-    @Test func discardRemovesOnlyTheKeptDisk() throws {
+    @Test func discardRemovesTheLinkWhenTheOriginalRemains() throws {
         let home = try makeHome()
-        let path = try VMKeptDisk.keep(vmName: "vm-a", environment: ["TART_HOME": home])
-        try VMKeptDisk.discard(path: path)
+        let environment = ["TART_HOME": home]
+        let path = try VMKeptDisk.keep(vmName: "vm-a", environment: environment)
+        #expect(try VMKeptDisk.discardIfOriginalRemains(keptPath: path, vmName: "vm-a",
+                                                        environment: environment))
         #expect(!FileManager.default.fileExists(atPath: path))
         #expect(try String(contentsOfFile: home + "/vms/vm-a/disk.img", encoding: .utf8) == "disk-data")
+    }
+
+    @Test func discardKeepsTheOnlyCopyAfterAPartialDelete() throws {
+        // Finding P0: disk.img is gone but the VM folder remains.
+        let home = try makeHome()
+        let environment = ["TART_HOME": home]
+        let path = try VMKeptDisk.keep(vmName: "vm-a", environment: environment)
+        try FileManager.default.removeItem(atPath: home + "/vms/vm-a/disk.img")
+        #expect(try !VMKeptDisk.discardIfOriginalRemains(keptPath: path, vmName: "vm-a",
+                                                         environment: environment))
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "disk-data")
+    }
+
+    @Test func discardKeepsTheCopyWhenTheVMFolderIsGone() throws {
+        let home = try makeHome()
+        let environment = ["TART_HOME": home]
+        let path = try VMKeptDisk.keep(vmName: "vm-a", environment: environment)
+        try FileManager.default.removeItem(atPath: home + "/vms/vm-a")
+        #expect(try !VMKeptDisk.discardIfOriginalRemains(keptPath: path, vmName: "vm-a",
+                                                         environment: environment))
+        #expect(FileManager.default.fileExists(atPath: path))
+    }
+
+    @Test func discardKeepsTheCopyWhenADifferentFileHasTheDiskName() throws {
+        let home = try makeHome()
+        let environment = ["TART_HOME": home]
+        let path = try VMKeptDisk.keep(vmName: "vm-a", environment: environment)
+        try FileManager.default.removeItem(atPath: home + "/vms/vm-a/disk.img")
+        try "other".write(toFile: home + "/vms/vm-a/disk.img", atomically: true, encoding: .utf8)
+        #expect(try !VMKeptDisk.discardIfOriginalRemains(keptPath: path, vmName: "vm-a",
+                                                         environment: environment))
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "disk-data")
     }
 
     @Test func folderNeedsTartHome() {

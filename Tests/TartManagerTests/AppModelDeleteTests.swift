@@ -69,6 +69,19 @@ import Foundation
         #expect(kept == "disk-data")
     }
 
+    @Test func stackedVMOffersNoKeepAndARefusedKeepLeavesTheVM() async throws {
+        let fixture = try makeFixture()
+        let directory = fixture.home + "/vms/vm-a"
+        #expect(fixture.model.canKeepDisk(vm: vm))
+        try FileManager.default.removeItem(atPath: directory + "/disk.img")
+        try "overlay".write(toFile: directory + "/overlay.asif", atomically: true, encoding: .utf8)
+        #expect(!fixture.model.canKeepDisk(vm: vm))
+
+        #expect(fixture.model.startDelete(vm: vm, removeDisk: false) != nil)
+        await fixture.model.jobManager.awaitIdle(timeout: 10)
+        #expect(FileManager.default.fileExists(atPath: directory + "/overlay.asif"))
+    }
+
     @Test func runningVMIsRefused() throws {
         let fixture = try makeFixture()
         let running = VMEntry(name: "vm-a", source: "local", running: true, state: "running",

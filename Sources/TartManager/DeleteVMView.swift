@@ -11,8 +11,11 @@ struct DeleteVMView: View {
     let vm: VMEntry
     @State private var removeDisk = true
 
+    private var canKeepDisk: Bool { model.canKeepDisk(vm: vm) }
+
     private var copy: DeleteVMCopy {
-        DeleteVMCopy(removeDisk: removeDisk, keptDisksFolder: model.keptDisksFolder)
+        DeleteVMCopy(removeDisk: removeDisk, canKeepDisk: canKeepDisk,
+                     keptDisksFolder: model.keptDisksFolder)
     }
 
     private var availabilityHint: String? {
@@ -41,7 +44,8 @@ struct DeleteVMView: View {
                 Label(copy.warning, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
                 Toggle(DeleteVMCopy.removeDiskLabel, isOn: $removeDisk)
-                if let caption = copy.keptDiskCaption {
+                    .disabled(!canKeepDisk)
+                if let caption = copy.diskCaption {
                     Text(caption)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -62,7 +66,7 @@ struct DeleteVMView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Delete", role: .destructive) {
-                    model.startDelete(vm: vm, removeDisk: removeDisk)
+                    model.startDelete(vm: vm, removeDisk: removeDisk || !canKeepDisk)
                     dismiss()
                 }
                 .keyboardShortcut(nil)

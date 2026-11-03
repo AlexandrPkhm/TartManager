@@ -24,13 +24,14 @@ public struct VMDeleteJob: Sendable {
         public var delete: @Sendable (String, TimeInterval) throws -> Void
         /// Saves the VM's disk outside the VM folder and returns its path.
         public var keepDisk: @Sendable (String) throws -> String
-        /// Removes a saved disk after a delete that failed.
-        public var discardKeptDisk: @Sendable (String) throws -> Void
+        /// After a failed delete, removes the saved disk at this path only
+        /// when the VM still holds its disk. Returns `true` when it removed it.
+        public var discardKeptDisk: @Sendable (String) throws -> Bool
 
         public init(list: @escaping @Sendable () throws -> [VMEntry],
                     delete: @escaping @Sendable (String, TimeInterval) throws -> Void,
                     keepDisk: @escaping @Sendable (String) throws -> String,
-                    discardKeptDisk: @escaping @Sendable (String) throws -> Void) {
+                    discardKeptDisk: @escaping @Sendable (String) throws -> Bool) {
             self.list = list
             self.delete = delete
             self.keepDisk = keepDisk
@@ -107,16 +108,38 @@ public struct VMDeleteJob: Sendable {
                 Self.log.notice("delete: \(name, privacy: .public) disappeared mid-action after \(String(format: "%.1f", duration), privacy: .public)s — clean no-op")
                 return
             }
-            if let keptDiskPath {
-                do {
-                    try ops.discardKeptDisk(keptDiskPath)
-                } catch {
-                    Self.log.error("delete: cannot remove the kept disk at \(keptDiskPath, privacy: .public): \(String(describing: error), privacy: .public)")
-                }
-            }
             Self.log.error("delete: failed after \(String(format: "%.1f", duration), privacy: .public)s — \(String(describing: failure), privacy: .public)")
+            if let keptDiskPath, !discardKeptDisk(at: keptDiskPath) {
+                throw Self.failure(failure, keptDiskAt: keptDiskPath)
+            }
             throw failure
         }
         Self.log.notice("delete: completed — \(name, privacy: .public) removed in \(String(format: "%.1f", Date().timeIntervalSince(began)), privacy: .public)s")
+    }
+
+    /// `false` means the kept disk stays, because it can be the only copy.
+    private func discardKeptDisk(at path: String) -> Bool {
+        do {
+            if try ops.discardKeptDisk(path) {
+                Self.log.notice("delete: \(name, privacy: .public) still has its disk; removed the kept disk at \(path, privacy: .public)")
+                return true
+            }
+            Self.log.notice("delete: \(name, privacy: .public) may have lost its disk; the kept disk stays at \(path, privacy: .public)")
+        } catch {
+            Self.log.error("delete: cannot remove the kept disk at \(path, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
+        return false
+    }
+
+    /// The failure with the kept disk's location on the first line:
+    /// `TartErrorAnalyzer` makes the first stderr line the sheet's message.
+    private static func failure(_ failure: TartClientError, keptDiskAt path: String) -> TartClientError {
+        let note = "The VM disk was kept at " + path
+        if case let .commandFailed(command, exitCode, stdout, stderr) = failure {
+            return .commandFailed(command: command, exitCode: exitCode, stdout: stdout,
+                                  stderr: note + "\n" + stderr)
+        }
+        return .commandFailed(command: "delete", exitCode: -1, stdout: "",
+                              stderr: note + "\n" + String(describing: failure))
     }
 }

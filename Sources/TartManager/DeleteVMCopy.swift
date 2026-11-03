@@ -2,19 +2,23 @@
 /// without the view.
 struct DeleteVMCopy: Equatable {
     static let removeDiskLabel = "Remove the VM disk with the VM"
+    static let cannotKeepCaption = "Tart Manager can keep only a standalone disk. This VM does not have one."
 
     let warning: String
-    /// Says where a kept disk goes; `nil` while the disk is removed.
-    let keptDiskCaption: String?
+    /// Says where a kept disk goes, or why this VM's disk cannot stay.
+    let diskCaption: String?
 
-    init(removeDisk: Bool, keptDisksFolder: String?) {
+    init(removeDisk: Bool, canKeepDisk: Bool, keptDisksFolder: String?) {
         let snapshots = "Snapshots in the snapshots folder are not removed."
-        if removeDisk {
+        if !canKeepDisk {
             warning = "This permanently removes the VM and all of its data. " + snapshots
-            keptDiskCaption = nil
+            diskCaption = Self.cannotKeepCaption
+        } else if removeDisk {
+            warning = "This permanently removes the VM and all of its data. " + snapshots
+            diskCaption = nil
         } else {
             warning = "This permanently removes the VM. Its disk stays as a file. " + snapshots
-            keptDiskCaption = keptDisksFolder.map { "The disk goes to \($0)." }
+            diskCaption = keptDisksFolder.map { "The disk goes to \($0)." }
         }
     }
 }

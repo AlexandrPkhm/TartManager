@@ -19,6 +19,8 @@ import Foundation
         var keepError: Error?
         var keptDisks: [String] = []
         var discardedDisks: [String] = []
+        /// What `discardKeptDisk` answers: the VM still holds its disk.
+        var originalRemains = true
 
         func enqueueList(_ call: Result<[VMEntry], TartClientError>) {
             lock.lock(); defer { lock.unlock() }
@@ -43,7 +45,11 @@ import Foundation
                 recorder.keptDisks.append(name)
                 return "/kept/\(name).img"
             },
-            discardKeptDisk: { path in recorder.discardedDisks.append(path) }))
+            discardKeptDisk: { path in
+                guard recorder.originalRemains else { return false }
+                recorder.discardedDisks.append(path)
+                return true
+            }))
     }
 
     @Test func stoppedVMDeletesWithTheBoundTimeout() throws {
@@ -162,6 +168,83 @@ import Foundation
             try makeJob(recorder, keepDisk: true).run(context: JobContext(report: { _ in }))
         }
         #expect(recorder.discardedDisks == ["/kept/vm-a.img"])
+    }
+
+    @Test func failedDeleteThatLostTheDiskSurfacesTheKeptDisk() {
+        // Finding P0: a partial delete removed disk.img and then failed. The
+        // VM still lists, so only the disk identity shows the kept disk is
+        // the last copy.
+        let recorder = stoppedRecorder()
+        recorder.originalRemains = false
+        recorder.deleteError = TartClientError.commandFailed(command: "delete", exitCode: 4,
+                                                             stdout: "", stderr: "disk error")
+        recorder.enqueueList(.success([entry("vm-a", state: "stopped", running: false)]))
+        do {
+            try makeJob(recorder, keepDisk: true).run(context: JobContext(report: { _ in }))
+            Issue.record("expected rethrow")
+        } catch let TartClientError.commandFailed(_, exitCode, _, stderr) {
+            #expect(exitCode == 4)
+            #expect(stderr.contains("disk error"))
+            #expect(stderr.contains("The VM disk was kept at /kept/vm-a.img"))
+        } catch {
+            Issue.record("unexpected error type: \(error)")
+        }
+        #expect(recorder.discardedDisks.isEmpty)
+    }
+
+    @Test func failedReconciliationAlsoAsksTheDiskIdentity() {
+        let recorder = stoppedRecorder()
+        recorder.originalRemains = false
+        recorder.deleteError = TartClientError.timedOut(command: "delete",
+                                                        timeout: VMDeleteJob.deleteTimeout)
+        recorder.enqueueList(.failure(.timedOut(command: "list", timeout: 10)))
+        do {
+            try makeJob(recorder, keepDisk: true).run(context: JobContext(report: { _ in }))
+            Issue.record("expected rethrow")
+        } catch let TartClientError.commandFailed(_, exitCode, _, stderr) {
+            #expect(exitCode == -1)
+            #expect(stderr.contains("The VM disk was kept at /kept/vm-a.img"))
+        } catch {
+            Issue.record("unexpected error type: \(error)")
+        }
+        #expect(recorder.discardedDisks.isEmpty)
+    }
+
+    @Test func partialDeleteWithFailedReconciliationKeepsTheOnlyCopyAndShowsIt() throws {
+        // Finding P0, with real files: `tart delete` removes disk.img and
+        // fails, and the re-list fails too.
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tartmanager-tests-\(UUID().uuidString)").path
+        let disk = home + "/vms/vm-a/disk.img"
+        try FileManager.default.createDirectory(atPath: home + "/vms/vm-a",
+                                                withIntermediateDirectories: true)
+        try "disk-data".write(toFile: disk, atomically: true, encoding: .utf8)
+        let environment = ["TART_HOME": home]
+        let recorder = stoppedRecorder()
+        recorder.enqueueList(.failure(.timedOut(command: "list", timeout: 10)))
+
+        let job = VMDeleteJob(name: "vm-a", keepDisk: true, ops: VMDeleteJob.Ops(
+            list: { try recorder.popList().get() },
+            delete: { _, _ in
+                try FileManager.default.removeItem(atPath: disk)
+                throw TartClientError.commandFailed(command: "delete", exitCode: 4,
+                                                    stdout: "", stderr: "disk error")
+            },
+            keepDisk: { name in try VMKeptDisk.keep(vmName: name, environment: environment) },
+            discardKeptDisk: { path in
+                try VMKeptDisk.discardIfOriginalRemains(keptPath: path, vmName: "vm-a",
+                                                        environment: environment)
+            }))
+
+        let keptPath = home + "/Kept Disks/vm-a.img"
+        do {
+            try job.run(context: JobContext(report: { _ in }))
+            Issue.record("expected rethrow")
+        } catch let error as TartClientError {
+            #expect(error.normalized.message == "The VM disk was kept at " + keptPath)
+            #expect(error.normalized.rawDetails.contains("disk error"))
+        }
+        #expect(try String(contentsOfFile: keptPath, encoding: .utf8) == "disk-data")
     }
 
     @Test func vanishedVMKeepsTheKeptDisk() throws {

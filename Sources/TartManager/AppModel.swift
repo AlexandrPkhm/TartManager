@@ -1513,6 +1513,12 @@ final class AppModel: ObservableObject {
         commandEnvironment.flatMap { VMKeptDisk.folder(environment: $0.environment) }
     }
 
+    /// `false` for a stacked VM: it has no standalone disk to keep.
+    func canKeepDisk(vm: VMEntry) -> Bool {
+        guard let environment = commandEnvironment?.environment else { return false }
+        return VMKeptDisk.canKeep(vmName: vm.name, environment: environment)
+    }
+
     func canDelete(vm: VMEntry) -> Bool {
         guard vm.isStoppedLocal else { return false }
         guard makeTartClient() != nil else { return false }
@@ -1564,7 +1570,10 @@ final class AppModel: ObservableObject {
                 list: { try client.list() },
                 delete: { name, timeout in try client.delete(name: name, timeout: timeout) },
                 keepDisk: { name in try VMKeptDisk.keep(vmName: name, environment: environment) },
-                discardKeptDisk: { path in try VMKeptDisk.discard(path: path) }))
+                discardKeptDisk: { path in
+                    try VMKeptDisk.discardIfOriginalRemains(
+                        keptPath: path, vmName: vm.name, environment: environment)
+                }))
         switch jobManager.start(kind: .deleteVM(name: vm.name), body: { context in
             try job.run(context: context)
         }) {
