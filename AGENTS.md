@@ -61,14 +61,19 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
+├── Catalog/
+│   └── default-registry-images.json # Image list that released apps download; the monthly scan updates it
 ├── Scripts/
 │   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
 │   │                              # bundle, Sparkle, signing, DMG, signed appcast
+│   ├── update-registry-catalog.sh # Scans ghcr.io/cirruslabs; updates the image list
 │   ├── tart-pin.env               # Pinned tart release: TART_VERSION and TART_SHA256
 │   └── tart-LICENSE.txt           # LICENSE of the pinned tart release; build check only
 ├── .github/
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
-│   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled
+│   └── workflows/
+│       ├── ci.yml                 # GitHub Actions tests; release tags only, currently disabled
+│       └── registry-catalog.yml   # Monthly registry scan; a change goes to a branch and an issue
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
 ├── Docs/
@@ -310,6 +315,16 @@ environment.
 - Treat registry credentials and notarization environment variables as secrets:
   never hardcode, log, or persist them outside the operating system's intended
   credential facilities.
+- `Catalog/default-registry-images.json` is live data: released apps download
+  it from `main`. Keep `schemaVersion` at `1` unless old apps can ignore the
+  change, and list only `ghcr.io/cirruslabs/` references.
+  `DefaultRegistryCatalog` rejects all others.
+- Only `Scripts/update-registry-catalog.sh` may read the GitHub package pages.
+  They are not a stable API, so the app must not use them. Send a change to
+  `Catalog/default-registry-images.json` through review; never push it to
+  `main` from a workflow.
+- `registryMode` lives in `AppSettings`. Set it only through
+  `AppModel.setRegistryMode(_:)`.
 - Sparkle owns the `SUEnableAutomaticChecks`, `SULastCheckTime`, and
   `SUSkippedVersion` preference keys. Do not add duplicate keys to
   `AppSettings`; read and write them through `SPUUpdater` in

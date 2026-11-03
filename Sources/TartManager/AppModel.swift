@@ -58,8 +58,14 @@ final class AppModel: ObservableObject {
     init(settings: AppSettings = AppSettings(),
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard),
          updater: AppUpdating? = nil,
-         prerequisiteChecker: PrerequisiteChecker? = nil) {
+         prerequisiteChecker: PrerequisiteChecker? = nil,
+         defaultRegistryStore: DefaultRegistryCatalogStore? = nil) {
         self.settings = settings
+        // `nil` means the real store, which downloads the list.
+        let registryStore = defaultRegistryStore ?? .live(settings: settings)
+        self.defaultRegistryStore = registryStore
+        self.defaultRegistryImages = registryStore.load()
+        self.registryMode = settings.registryMode
         // `nil` means the real checker, with this bundle's own tart (if any).
         self.checker = prerequisiteChecker ?? PrerequisiteChecker(
             bundledExecutablePath: BundledTartLocation.executablePath(inAppBundle: Bundle.main.bundleURL))
@@ -968,6 +974,69 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Registries
+
+    /// The Registries panel mode, persisted through `AppSettings`.
+    @Published private(set) var registryMode: RegistryMode
+
+    func setRegistryMode(_ mode: RegistryMode) {
+        guard mode != registryMode else { return }
+        settings.registryMode = mode
+        registryMode = mode
+        Logger.registries.info("registry mode: \(mode.rawValue, privacy: .public)")
+    }
+
+    /// The images the default registry offers, for the Registries panel and
+    /// the create sheet's quick picks.
+    @Published private(set) var defaultRegistryImages: [DefaultRegistryImage]
+    private let defaultRegistryStore: DefaultRegistryCatalogStore
+    private var defaultRegistryRefreshInFlight = false
+
+    /// Replaces the list when the store downloads a newer one. Failures stay
+    /// in the log: the current list still works.
+    func refreshDefaultRegistryImages() async {
+        guard !defaultRegistryRefreshInFlight else { return }
+        defaultRegistryRefreshInFlight = true
+        defer { defaultRegistryRefreshInFlight = false }
+        if let images = await defaultRegistryStore.refreshIfDue() {
+            defaultRegistryImages = images
+        }
+    }
+
+    /// Why a pull cannot start, or nil when it can. The panel disables its
+    /// button and shows this text.
+    func pullBlockReason(reference: String) -> String? {
+        if !ImageReferenceRules.isValid(reference) {
+            return "The image reference is not valid."
+        }
+        if jobManager.runningTargets.contains(JobInfo.Kind.pull(reference: reference).target) {
+            return "This image is already being pulled."
+        }
+        guard makeTartClient() != nil else {
+            return "tart is missing, outdated, or no storage location is configured."
+        }
+        guard storageAvailability.isAvailable else {
+            return "VM storage is unavailable — the volume is not mounted."
+        }
+        return nil
+    }
+
+    /// Starts a `tart pull` job. Returns nil when the job started and a
+    /// user-facing reason otherwise.
+    @discardableResult
+    func startPull(reference: String) -> String? {
+        if let reason = pullBlockReason(reference: reference) {
+            Logger.registries.error("pull refused for \(reference, privacy: .public): \(reason, privacy: .public)")
+            return reason
+        }
+        guard let client = makeTartClient() else {
+            return "tart is unavailable."
+        }
+        guard jobManager.startPull(reference: reference, using: client) != nil else {
+            return "This image is already being pulled."
+        }
+        Logger.registries.info("pull started for \(reference, privacy: .public)")
+        return nil
+    }
 
     /// True while a registry operation is in flight; the Registries section
     /// disables both buttons while set.

@@ -30,6 +30,7 @@ guidelines and architecture rules are in [`AGENTS.md`](../AGENTS.md).
   - [Watching the app's logs](#watching-the-apps-logs)
   - [Resetting development state](#resetting-development-state)
   - [Testing an in-app update locally](#testing-an-in-app-update-locally)
+  - [Updating the default registry image list](#updating-the-default-registry-image-list)
 - [Troubleshooting](#troubleshooting)
   - [Flaky tests in parallel mode](#flaky-tests-in-parallel-mode)
   - [Swift 5 language mode compilation limits](#swift-5-language-mode-compilation-limits)
@@ -373,6 +374,50 @@ the production key, and never commit the test values.
    ```sh
    security delete-generic-password -s https://sparkle-project.org -a tartmanager-test
    ```
+
+### Updating the default registry image list
+
+GHCR does not let an anonymous client list an organization's images, so the
+Registries panel reads the list from `Catalog/default-registry-images.json`.
+The `Registry catalog` workflow scans the registry on day 1 of each month. If
+the list changed, the workflow pushes the `automation/default-registry-images`
+branch and opens an issue with a link to compare it.
+
+To apply a change from the workflow:
+
+1. Open the link in the issue and create a pull request.
+2. Examine the list, then merge the pull request.
+3. Close the issue.
+
+To scan now, run the workflow manually in the GitHub **Actions** tab, or run
+the script locally. The script changes only the list file:
+
+```bash
+Scripts/update-registry-catalog.sh
+```
+
+To change a label or the order, edit the JSON file. The scan keeps both for
+known images. It puts new macOS images first.
+
+If the workflow fails, GitHub notifies the person who last changed the
+schedule. The likely causes are a changed package page format or a drop of
+more than half of the list. In both cases the list stays unchanged.
+
+GitHub disables scheduled workflows in a public repository after 60 days
+without repository activity. To enable the schedule again, open the workflow
+in the **Actions** tab and select **Enable workflow**.
+
+To change the list by hand:
+
+1. Edit the file. Each entry has a `label` and a `reference` that starts with
+   `ghcr.io/cirruslabs/`.
+2. Run `swift test --no-parallel --filter DefaultRegistryCatalogTests`.
+3. Merge to `main`. Apps download the new list within about 24 hours, with no
+   new build.
+
+Do not change `schemaVersion` for a list edit: apps ignore a file with a
+version that they do not know. To change the list for a first launch without a
+network, edit `DefaultRegistryCatalog.builtIn`.
 
 ## Troubleshooting
 

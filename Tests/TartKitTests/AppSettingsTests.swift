@@ -174,4 +174,13 @@ import Foundation
         #expect(settings.tartCustomPath == nil)
         #expect(defaults.object(forKey: AppSettings.tartCustomPathKey) == nil)
     }
+
+    @Test func defaultRegistryRefreshAttemptPersists() {
+        let defaults = makeIsolatedDefaults()
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.defaultRegistryRefreshAttempt == nil)
+        let date = Date(timeIntervalSince1970: 1_000)
+        settings.defaultRegistryRefreshAttempt = date
+        #expect(AppSettings(defaults: defaults).defaultRegistryRefreshAttempt == date)
+    }
 }

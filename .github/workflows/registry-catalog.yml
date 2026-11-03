@@ -1,0 +1,50 @@
+name: Registry catalog
+
+# Scans ghcr.io/cirruslabs once a month. A change goes to a branch and an issue
+# for review, because main is protected and this list reaches every app.
+on:
+  schedule:
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+    env:
+      CATALOG: Catalog/default-registry-images.json
+      BRANCH: automation/default-registry-images
+      ISSUE_TITLE: Review the default registry image list update
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Scan the registry
+        run: Scripts/update-registry-catalog.sh
+      - name: Publish a change for review
+        run: |
+          if git diff --quiet -- "$CATALOG"; then
+            echo "The image list is current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add "$CATALOG"
+          git commit -m "chore: update default registry image list"
+          git push --force origin "$BRANCH"
+
+          open_issues="$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
+            --json number --jq length)"
+          if [ "$open_issues" != "0" ]; then
+            echo "An open issue already tracks this branch."
+            exit 0
+          fi
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1"
+          gh issue create --title "$ISSUE_TITLE" --body \
+            "The monthly scan found a change. Open a pull request from [the branch]($url), examine the list, and merge it. Then close this issue."

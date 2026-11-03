@@ -4,6 +4,44 @@ import Foundation
 
 @MainActor
 @Suite struct JobManagerTests {
+    /// Counts how many times a cancel action ran.
+    final class CancelCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+
+        func increment() {
+            lock.lock()
+            count += 1
+            lock.unlock()
+        }
+
+        var value: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return count
+        }
+    }
+
+    @Test func cancelActionRegisteredAfterCancelRunsAtOnce() {
+        let context = JobContext(report: { _ in })
+        let counter = CancelCounter()
+        context.performCancel()
+        context.registerCancel { counter.increment() }
+        #expect(counter.value == 1)
+        // A second cancel does not run the late action again.
+        context.performCancel()
+        #expect(counter.value == 1)
+    }
+
+    @Test func cancelActionRegisteredBeforeCancelRunsOnCancelOnly() {
+        let context = JobContext(report: { _ in })
+        let counter = CancelCounter()
+        context.registerCancel { counter.increment() }
+        #expect(counter.value == 0)
+        context.performCancel()
+        #expect(counter.value == 1)
+    }
+
     @Test func startCreatesRunningJobAndCompletesIt() async {
         let manager = JobManager()
         let result = manager.start(kind: .clone(name: "vm-a", source: "img:latest")) { context in
