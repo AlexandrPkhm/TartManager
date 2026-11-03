@@ -80,7 +80,7 @@ struct RegistrySettingsPanel: View {
         if let pullRefusal {
             Text(pullRefusal)
                 .font(.footnote)
-                .foregroundStyle(.red)
+                .foregroundStyle(WorkspaceStyle.error)
         } else if let reason = effectiveReference.flatMap({ model.pullBlockReason(reference: $0) }) {
             // A disabled state, such as a running pull, is not an error.
             Text(reason)
@@ -128,7 +128,7 @@ struct RegistrySettingsPanel: View {
         if !registryURL.isEmpty && host == nil {
             Text(RegistrySettingsCopy.hostError)
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(WorkspaceStyle.error)
         }
         HStack {
             Button("Sign In") {

@@ -140,10 +140,15 @@ public final class JobContext: @unchecked Sendable {
         self.reportSummary = reportSummary
     }
 
+    /// Adds a cancel action. A job that is already cancelled runs the action
+    /// at once: a cancel can arrive after the job's check and before its
+    /// subprocess registers, and that subprocess must still stop.
     public func registerCancel(_ action: @escaping @Sendable () -> Void) {
         lock.lock()
-        cancellators.append(action)
+        let cancelled = _cancelled
+        if !cancelled { cancellators.append(action) }
         lock.unlock()
+        if cancelled { action() }
     }
 
     public var isCancelled: Bool {

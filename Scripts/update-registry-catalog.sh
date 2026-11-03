@@ -58,7 +58,10 @@ packages=""
 page=1
 while :; do
     [ "$page" -le "$MAX_PAGES" ] || die "more than $MAX_PAGES package pages"
-    names="$(fetch --fail "$PACKAGES_URL&page=$page" \
+    # A failed page must stop the scan: it is not the end of the list.
+    html="$(fetch --fail "$PACKAGES_URL&page=$page")" \
+        || die "could not fetch package page $page"
+    names="$(printf '%s' "$html" \
         | grep -oE '/packages/container/package/[a-z0-9._-]+' \
         | sed 's#.*/##' | sort -u || true)"
     [ -n "$names" ] || break

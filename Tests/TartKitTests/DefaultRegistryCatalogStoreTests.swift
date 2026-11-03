@@ -35,17 +35,20 @@ import Foundation
         """.utf8)
     }
 
+    private let settings = AppSettings(
+        defaults: UserDefaults(suiteName: "DefaultRegistryCatalogStoreTests-\(UUID().uuidString)")!)
+
     private func makeStore(_ stub: FetchStub, now: Date = Date()) -> DefaultRegistryCatalogStore {
         DefaultRegistryCatalogStore(cacheFile: cacheFile,
+                                    settings: settings,
                                     fetch: { try stub.fetch() },
                                     now: { now })
     }
 
-    private func writeCache(_ data: Data, modified: Date) throws {
+    private func writeCache(_ data: Data) throws {
         try FileManager.default.createDirectory(at: cacheFile.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: cacheFile)
-        try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: cacheFile.path)
     }
 
     @Test func loadUsesBuiltInListWithoutSavedCopy() {
@@ -54,62 +57,79 @@ import Foundation
     }
 
     @Test func loadUsesValidSavedCopy() throws {
-        try writeCache(catalog("Saved"), modified: Date())
+        try writeCache(catalog("Saved"))
         let store = makeStore(FetchStub(.success(catalog("New"))))
         #expect(store.load().map(\.label) == ["Saved"])
     }
 
     @Test func loadIgnoresBadSavedCopy() throws {
-        try writeCache(Data("broken".utf8), modified: Date())
+        try writeCache(Data("broken".utf8))
         let store = makeStore(FetchStub(.success(catalog("New"))))
         #expect(store.load() == DefaultRegistryCatalog.builtIn)
     }
 
-    @Test func refreshDownloadsAndSavesWithoutSavedCopy() async {
+    @Test func refreshDownloadsAndSavesOnFirstAttempt() async {
+        let now = Date()
         let stub = FetchStub(.success(catalog("New")))
-        let store = makeStore(stub)
-        let images = await store.refreshIfStale()
+        let store = makeStore(stub, now: now)
+        let images = await store.refreshIfDue()
         #expect(images?.map(\.label) == ["New"])
         #expect(store.load().map(\.label) == ["New"])
         #expect(stub.calls == 1)
+        #expect(settings.defaultRegistryRefreshAttempt == now)
     }
 
-    @Test func refreshSkipsDownloadWhileSavedCopyIsFresh() async throws {
+    @Test func refreshSkipsDownloadInsideTheLimit() async {
         let now = Date()
-        try writeCache(catalog("Saved"), modified: now.addingTimeInterval(-(DefaultRegistryCatalogStore.maxAge - 60)))
+        settings.defaultRegistryRefreshAttempt = now.addingTimeInterval(-(DefaultRegistryCatalogStore.maxAge - 60))
         let stub = FetchStub(.success(catalog("New")))
-        let images = await makeStore(stub, now: now).refreshIfStale()
+        let images = await makeStore(stub, now: now).refreshIfDue()
         #expect(images == nil)
         #expect(stub.calls == 0)
     }
 
-    @Test func refreshDownloadsWhenSavedCopyIsOldOrDatedInTheFuture() async throws {
+    @Test func refreshDownloadsWhenAttemptIsOldOrDatedInTheFuture() async {
         let now = Date()
-        for modified in [now.addingTimeInterval(-DefaultRegistryCatalogStore.maxAge),
-                         now.addingTimeInterval(3_600)] {
-            try writeCache(catalog("Saved"), modified: modified)
+        for attempt in [now.addingTimeInterval(-DefaultRegistryCatalogStore.maxAge),
+                        now.addingTimeInterval(3_600)] {
+            settings.defaultRegistryRefreshAttempt = attempt
             let stub = FetchStub(.success(catalog("New")))
-            let images = await makeStore(stub, now: now).refreshIfStale()
+            let images = await makeStore(stub, now: now).refreshIfDue()
             #expect(images?.map(\.label) == ["New"])
+            #expect(stub.calls == 1)
         }
     }
 
-    @Test func failedDownloadKeepsSavedCopy() async throws {
+    @Test func failedDownloadKeepsSavedCopyAndWaitsForTheLimit() async throws {
         let now = Date()
-        try writeCache(catalog("Saved"), modified: now.addingTimeInterval(-2 * DefaultRegistryCatalogStore.maxAge))
-        let store = makeStore(FetchStub(.failure(URLError(.notConnectedToInternet))), now: now)
-        let images = await store.refreshIfStale()
-        #expect(images == nil)
+        try writeCache(catalog("Saved"))
+        let stub = FetchStub(.failure(URLError(.notConnectedToInternet)))
+        let store = makeStore(stub, now: now)
+        #expect(await store.refreshIfDue() == nil)
+        #expect(await store.refreshIfDue() == nil)
+        #expect(stub.calls == 1)
         #expect(store.load().map(\.label) == ["Saved"])
     }
 
-    @Test func badDownloadKeepsSavedCopy() async throws {
+    @Test func failedSaveStillWaitsForTheLimit() async throws {
         let now = Date()
-        try writeCache(catalog("Saved"), modified: now.addingTimeInterval(-2 * DefaultRegistryCatalogStore.maxAge))
+        // A regular file in place of the parent folder makes the save fail.
+        let parent = cacheFile.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try Data().write(to: parent)
+        let stub = FetchStub(.success(catalog("New")))
+        let store = makeStore(stub, now: now)
+        #expect(await store.refreshIfDue()?.map(\.label) == ["New"])
+        #expect(await store.refreshIfDue() == nil)
+        #expect(stub.calls == 1)
+    }
+
+    @Test func badDownloadKeepsSavedCopy() async throws {
+        try writeCache(catalog("Saved"))
         let bad = Data(#"{"schemaVersion":2,"images":[]}"#.utf8)
-        let store = makeStore(FetchStub(.success(bad)), now: now)
-        let images = await store.refreshIfStale()
-        #expect(images == nil)
+        let store = makeStore(FetchStub(.success(bad)))
+        #expect(await store.refreshIfDue() == nil)
         #expect(store.load().map(\.label) == ["Saved"])
     }
 }

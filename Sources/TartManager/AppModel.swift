@@ -59,10 +59,12 @@ final class AppModel: ObservableObject {
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard),
          updater: AppUpdating? = nil,
          prerequisiteChecker: PrerequisiteChecker? = nil,
-         defaultRegistryStore: DefaultRegistryCatalogStore = .live()) {
+         defaultRegistryStore: DefaultRegistryCatalogStore? = nil) {
         self.settings = settings
-        self.defaultRegistryStore = defaultRegistryStore
-        self.defaultRegistryImages = defaultRegistryStore.load()
+        // `nil` means the real store, which downloads the list.
+        let registryStore = defaultRegistryStore ?? .live(settings: settings)
+        self.defaultRegistryStore = registryStore
+        self.defaultRegistryImages = registryStore.load()
         self.registryMode = settings.registryMode
         // `nil` means the real checker, with this bundle's own tart (if any).
         self.checker = prerequisiteChecker ?? PrerequisiteChecker(
@@ -995,7 +997,7 @@ final class AppModel: ObservableObject {
         guard !defaultRegistryRefreshInFlight else { return }
         defaultRegistryRefreshInFlight = true
         defer { defaultRegistryRefreshInFlight = false }
-        if let images = await defaultRegistryStore.refreshIfStale() {
+        if let images = await defaultRegistryStore.refreshIfDue() {
             defaultRegistryImages = images
         }
     }

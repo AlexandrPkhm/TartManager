@@ -12,6 +12,7 @@ import Foundation
         DefaultRegistryCatalogStore(
             cacheFile: FileManager.default.temporaryDirectory
                 .appendingPathComponent("registry-model-\(UUID().uuidString)/images.json"),
+            settings: AppSettings(defaults: makeDefaults()),
             fetch: fetch)
     }
 

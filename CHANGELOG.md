@@ -29,6 +29,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   while the selected bundled tart works. The warning about an older selected
   tart does not show in this state.
 
+### Fixed
+
+- Fixed job cancel: a cancel that arrives while a clone, pull, or other job is
+  starting now stops its tart process.
+
 ## 1.3.0 - 2026-10-22
 
 ### Added
