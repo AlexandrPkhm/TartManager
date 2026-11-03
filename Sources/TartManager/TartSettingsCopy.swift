@@ -32,15 +32,15 @@ struct TartSettingsCopy: Equatable {
         bundledMenuLabel = report.bundled == nil
             ? Self.bundledUnavailableLabel : Self.sourceLabel(.bundled)
 
-        pathFieldValue = customPath ?? report.installed.binaryPath ?? ""
+        pathFieldValue = customPath ?? report.installed?.binaryPath ?? ""
         let origin = customPath == nil ? "Detected automatically" : "Custom path"
         // No version here: the Active tart row shows it.
         switch report.installed {
-        case .ok, .outdated:
+        case .ok, .outdated, nil:
             pathCaption = origin
-        case .invalidCustomPath, .damaged:
+        case .invalidCustomPath?, .damaged?:
             pathCaption = "\(origin) · cannot run. Choose another file."
-        case .missing:
+        case .missing?:
             pathCaption = Self.notFoundCaption
         }
         showsReset = customPath != nil
