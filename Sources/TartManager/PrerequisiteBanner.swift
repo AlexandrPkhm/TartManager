@@ -13,13 +13,13 @@ struct PrerequisiteBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.yellow)
+                .foregroundStyle(WorkspaceStyle.warning)
                 .font(.title2)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 Text(info.headline).font(.headline)
                 Text(info.detail).font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WorkspaceStyle.muted)
                 HStack(spacing: 8) {
                     if let command = info.command {
                         Text(command)
@@ -27,7 +27,7 @@ struct PrerequisiteBanner: View {
                             .padding(6)
                             .background(
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(.quaternary.opacity(0.5)))
+                                    .fill(WorkspaceStyle.panel))
                         CopyButton(value: command)
                             .buttonStyle(.borderless)
                     }
@@ -43,7 +43,7 @@ struct PrerequisiteBanner: View {
             Spacer()
         }
         .padding(12)
-        .background(.orange.opacity(0.12))
-        .overlay(alignment: .top) { Rectangle().fill(.orange).frame(height: 3) }
+        .background(WorkspaceStyle.warningBackground)
+        .overlay(alignment: .top) { Rectangle().fill(WorkspaceStyle.warning).frame(height: 3) }
     }
 }

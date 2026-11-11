@@ -16,7 +16,7 @@ struct ErrorReportSheet: View {
                     .font(.headline)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(WorkspaceStyle.warning)
             }
             Text(error.message)
             if let hint = error.hint {
@@ -24,10 +24,10 @@ struct ErrorReportSheet: View {
                     Text(hint).font(.callout)
                 } icon: {
                     Image(systemName: "lightbulb")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WorkspaceStyle.muted)
                 }
                 .padding(10)
-                .background(.yellow.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                .background(WorkspaceStyle.warningBackground, in: RoundedRectangle(cornerRadius: 6))
             }
             DisclosureGroup("Details", isExpanded: $showDetails) {
                 ScrollView {
@@ -38,7 +38,7 @@ struct ErrorReportSheet: View {
                         .padding(6)
                 }
                 .frame(height: 160)
-                .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+                .background(WorkspaceStyle.sidebar, in: RoundedRectangle(cornerRadius: 6))
             }
             HStack {
                 CopyButton(value: error.copyReport(tartRuntime: tartRuntime), label: "Copy Details")

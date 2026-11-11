@@ -55,12 +55,12 @@ struct CreateVMView: View {
                 .pickerStyle(.segmented)
                 if !name.isEmpty && !model.isNameAvailable(name) {
                     Label("A VM or image with this name already exists.", systemImage: "xmark.octagon")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.danger)
                         .font(.caption)
                 }
                 if let blockedReason {
                     Label(blockedReason, systemImage: "xmark.octagon")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.danger)
                         .font(.caption)
                 }
             }
@@ -138,14 +138,14 @@ struct CreateVMView: View {
             TextField("Disk size (GB)", text: $diskSizeText)
             if let diskSizeError {
                 Label(diskSizeError, systemImage: "xmark.octagon")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(WorkspaceStyle.danger)
                     .font(.caption)
             }
             Label("The first run of a fresh IPSW VM requires completing "
                   + "macOS Setup Assistant inside the VM window.",
                   systemImage: "info.circle")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WorkspaceStyle.muted)
         }
     }
 

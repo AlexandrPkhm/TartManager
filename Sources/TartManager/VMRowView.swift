@@ -10,7 +10,7 @@ struct VMRowView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbolName)
-                .foregroundStyle(entry.isLocal && entry.running ? .green : .secondary)
+                .foregroundStyle(entry.isLocal && entry.running ? WorkspaceStyle.green : WorkspaceStyle.muted)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
@@ -35,7 +35,7 @@ struct VMRowView: View {
                 } else if entry.running {
                     Image(systemName: "circle.fill")
                         .font(.caption2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(WorkspaceStyle.green)
                         .help(entry.state)
                 }
             }

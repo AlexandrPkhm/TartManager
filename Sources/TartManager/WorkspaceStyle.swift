@@ -13,8 +13,13 @@ enum WorkspaceStyle {
     static let selected = color(0xdce9fb, 0x303f58)
     static let green = color(0x197345, 0x77d6a0)
     static let primary = color(0x246bdb, 0x246bdb)
+    /// Label color on a `primary` fill (5.0:1 in both appearances).
+    static let onPrimary = color(0xffffff, 0xffffff)
     static let warning = color(0xb25e09, 0xf0b46a)
     static let warningBackground = color(0xfdf1e3, 0x3a2f22)
+    /// Errors, failed validation, and data-loss warnings. Reads 4.9:1 or
+    /// more on every workspace and sheet ground in both appearances.
+    static let danger = color(0xc0281e, 0xff8b80)
 
     private static func color(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -34,7 +39,7 @@ struct WorkspaceButtonStyle: ButtonStyle {
         configuration.label
             .font(.system(size: 12, weight: .medium))
             .padding(.horizontal, 13).padding(.vertical, 8)
-            .foregroundStyle(primary ? Color.white : WorkspaceStyle.text)
+            .foregroundStyle(primary ? WorkspaceStyle.onPrimary : WorkspaceStyle.text)
             .background(primary ? WorkspaceStyle.primary : flat ? .clear : WorkspaceStyle.panel,
                         in: RoundedRectangle(cornerRadius: 7))
             .overlay(RoundedRectangle(cornerRadius: 7)

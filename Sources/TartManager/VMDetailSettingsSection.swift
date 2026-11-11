@@ -29,7 +29,7 @@ struct VMDetailSettingsSection: View {
                 } else {
                     Label(hintText, systemImage: "lock.fill")
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WorkspaceStyle.muted)
                 }
             }
             // Sibling section (not nested inside "Resources"), same editability
@@ -47,7 +47,7 @@ struct VMDetailSettingsSection: View {
                     if !serialRegenerationAvailable {
                         Text("Regenerating the serial number is only available for macOS guests; tart leaves other guests unchanged.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WorkspaceStyle.muted)
                     }
                 }
             }
@@ -113,14 +113,14 @@ struct VMDetailSettingsSection: View {
                 ForEach(validation.warnings, id: \.self) { warning in
                     Label(warning, systemImage: "exclamationmark.circle")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(WorkspaceStyle.warning)
                 }
             }
             if !validation.errors.isEmpty {
                 ForEach(validation.errors, id: \.self) { error in
                     Label(error, systemImage: "xmark.octagon")
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.danger)
                 }
             }
             HStack {

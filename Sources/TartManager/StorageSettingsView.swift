@@ -31,7 +31,7 @@ struct StorageSettingsView: View {
                 HStack {
                     Button("Choose…") { choose() }
                     if let validation, case .invalid(_, let reason) = validation {
-                        Text(reason).foregroundStyle(.red)
+                        Text(reason).foregroundStyle(WorkspaceStyle.danger)
                     }
                 }
             }
@@ -51,7 +51,7 @@ struct StorageSettingsView: View {
                 if !RegistryCredentialRules.isValidHost(registryHost) {
                     Text("The host must not start with “-” or contain spaces.")
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.danger)
                 }
                 HStack {
                     Button("Sign In") {
@@ -121,7 +121,7 @@ struct StorageSettingsView: View {
                     }
                 }
                 if let snapshotValidation, case .invalid(_, let reason) = snapshotValidation {
-                    Text(reason).foregroundStyle(.red)
+                    Text(reason).foregroundStyle(WorkspaceStyle.danger)
                 }
             }
             SettingsPanel(title: "Maintenance") {

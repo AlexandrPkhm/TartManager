@@ -46,7 +46,7 @@ struct DeleteVMView: View {
                     typedName: $typedName)
                 if let availabilityHint {
                     Label(availabilityHint, systemImage: "xmark.octagon")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.danger)
                         .font(.caption)
                 }
             }

@@ -8,6 +8,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Changed
+
+- Changed error and data-loss warning text to one red that stays readable in
+  light and dark appearance.
+- Changed the tart banner and the error report to the app's own warning
+  colors, and secondary text everywhere to the app's own gray.
+
 ## 1.3.0 - 2026-10-22
 
 ### Added

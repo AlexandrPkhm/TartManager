@@ -232,6 +232,12 @@ environment.
 - Take every view color from `WorkspaceStyle` in
   `Sources/TartManager/WorkspaceStyle.swift`. Define a new color there with
   explicit light and dark values; never hardcode a color in a view.
+  Never use SwiftUI system colors (`.red`, `.orange`, `.yellow`, `.green`,
+  `.secondary`, `.quaternary`, `Color.white`) in a view: use `danger` for
+  errors, `warning` and `warningBackground` for cautions, `green` for the
+  running state, `muted` for secondary text, and `onPrimary` on `primary`.
+  `WorkspaceStyleTests.viewsUseNoSystemColors` enforces this; only
+  `MenuBarIcon`'s black template mask is exempt.
 - Keep reason-specific UI copy in a small value type, such as
   `StorageUnavailableCopy`, so `Tests/TartManagerTests/` can test it without
   rendering the view.

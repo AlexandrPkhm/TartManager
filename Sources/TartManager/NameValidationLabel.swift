@@ -7,7 +7,7 @@ struct NameValidationLabel: View {
 
     var body: some View {
         Label(text, systemImage: "xmark.octagon")
-            .foregroundStyle(.red)
+            .foregroundStyle(WorkspaceStyle.danger)
             .font(.caption)
     }
 }
