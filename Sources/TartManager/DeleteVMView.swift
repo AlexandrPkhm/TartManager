@@ -42,18 +42,18 @@ struct DeleteVMView: View {
             }
             Section {
                 Label(copy.warning, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(WorkspaceStyle.error)
                 Toggle(DeleteVMCopy.removeDiskLabel, isOn: $removeDisk)
                     .disabled(!canKeepDisk)
                 if let caption = copy.diskCaption {
                     Text(caption)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WorkspaceStyle.muted)
                         .textSelection(.enabled)
                 }
                 if let availabilityHint {
                     Label(availabilityHint, systemImage: "xmark.octagon")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(WorkspaceStyle.error)
                         .font(.caption)
                 }
             }

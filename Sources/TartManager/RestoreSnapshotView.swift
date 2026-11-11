@@ -26,7 +26,7 @@ struct RestoreSnapshotView: View {
                 Text("Recommended: before replacing the VM, its current state is saved "
                      + "as a normal snapshot you can restore if the rollback was a mistake.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WorkspaceStyle.muted)
             }
             Section {
                 // Finding 6: the shared typed-name confirmation section; the

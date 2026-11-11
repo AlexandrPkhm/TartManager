@@ -123,7 +123,7 @@ struct VMListView: View {
             .accessibilityLabel("Settings")
             .help("Settings")
             Spacer(minLength: 0)
-            Circle().fill(model.prerequisite?.isSatisfied == true ? WorkspaceStyle.green : .orange)
+            Circle().fill(model.prerequisite?.isSatisfied == true ? WorkspaceStyle.green : WorkspaceStyle.warning)
                 .frame(width: 6, height: 6)
             Text(engineVersion)
         }

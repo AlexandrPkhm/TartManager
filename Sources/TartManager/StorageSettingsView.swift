@@ -23,7 +23,7 @@ struct StorageSettingsView: View {
                 HStack {
                     Button("Choose…") { choose() }
                     if let validation, case .invalid(_, let reason) = validation {
-                        Text(reason).foregroundStyle(.red)
+                        Text(reason).foregroundStyle(WorkspaceStyle.error)
                     }
                 }
             }
@@ -56,7 +56,7 @@ struct StorageSettingsView: View {
                     }
                 }
                 if let snapshotValidation, case .invalid(_, let reason) = snapshotValidation {
-                    Text(reason).foregroundStyle(.red)
+                    Text(reason).foregroundStyle(WorkspaceStyle.error)
                 }
             }
             SettingsPanel(title: "Maintenance") {

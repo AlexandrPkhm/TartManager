@@ -17,7 +17,7 @@ struct DestructiveConfirmSection: View {
         Group {
             if let warning {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(WorkspaceStyle.error)
             }
             TextField(prompt, text: $typedName)
         }

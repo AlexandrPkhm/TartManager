@@ -16,14 +16,14 @@ struct OnboardingView: View {
             Text("Pick the folder that holds your tart VMs (tart's home). "
                  + "For example a folder on an external SSD. You can change it later in Settings.")
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WorkspaceStyle.muted)
             HStack(spacing: 12) {
                 Button("Choose Folder…") { choose() }
                     .buttonStyle(.borderedProminent)
                 Button("Use Default (\(StorageLocationValidator.defaultPath))") { useDefault() }
             }
             if let validation, case .invalid(_, let reason) = validation {
-                Text(reason).foregroundStyle(.red).font(.callout)
+                Text(reason).foregroundStyle(WorkspaceStyle.error).font(.callout)
             }
         }
         .padding(28)

@@ -82,11 +82,11 @@ struct VMDetailSharedFoldersSection: View {
             Text("Untagged shares are automatically mounted inside the guest at "
                  + "/Volumes/My Shared Files/<mount name>.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WorkspaceStyle.muted)
             Text("Custom-tag shares are not automounted. Mount one manually inside the guest with "
                  + "mount_virtiofs <tag> <directory>.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WorkspaceStyle.muted)
         }
     }
 
@@ -164,7 +164,7 @@ private struct VMFolderShareRow: View {
         Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 12) {
             GridRow(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Mount name").font(.caption).foregroundStyle(.secondary)
+                    Text("Mount name").font(.caption).foregroundStyle(WorkspaceStyle.muted)
                     TextField("e.g. Host Downloads", text: editableName)
                         .textFieldStyle(.roundedBorder)
                         .labelsHidden()
@@ -182,7 +182,7 @@ private struct VMFolderShareRow: View {
             }
             GridRow {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Host folder").font(.caption).foregroundStyle(.secondary)
+                    Text("Host folder").font(.caption).foregroundStyle(WorkspaceStyle.muted)
                     Text(share.hostPath)
                         .font(.system(.body, design: .monospaced))
                         .lineLimit(1)
@@ -198,7 +198,7 @@ private struct VMFolderShareRow: View {
             GridRow(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Custom mount tag (optional)")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(WorkspaceStyle.muted)
                     TextField("Leave empty to automount", text: optionalTag)
                         .textFieldStyle(.roundedBorder)
                         .labelsHidden()
@@ -259,16 +259,16 @@ private struct VMFolderShareSummary: View {
 
     var body: some View {
         HStack {
-            Image(systemName: "folder.badge.gearshape").foregroundStyle(.secondary)
+            Image(systemName: "folder.badge.gearshape").foregroundStyle(WorkspaceStyle.muted)
             Text("\(share.name) ← \(share.hostPath)")
                 .font(.caption)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if share.readOnly {
-                Text("read-only").font(.caption2).foregroundStyle(.secondary)
+                Text("read-only").font(.caption2).foregroundStyle(WorkspaceStyle.muted)
             }
             if let tag = share.customTag {
-                Text("tag: \(tag)").font(.caption2).foregroundStyle(.secondary)
+                Text("tag: \(tag)").font(.caption2).foregroundStyle(WorkspaceStyle.muted)
             }
         }
     }

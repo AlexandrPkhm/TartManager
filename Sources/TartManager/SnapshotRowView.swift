@@ -8,12 +8,12 @@ struct SnapshotRowView: View {
 
     var body: some View {
         HStack {
-            Image(systemName: "externaldrive.badge.timemachine").foregroundStyle(.secondary)
+            Image(systemName: "externaldrive.badge.timemachine").foregroundStyle(WorkspaceStyle.muted)
             VStack(alignment: .leading, spacing: 2) {
                 Text(snapshot.label ?? (snapshot.archivePath as NSString).lastPathComponent)
                 Text("\(snapshot.createdAt?.formatted(date: .abbreviated, time: .shortened) ?? "") · \(ByteCountFormatter.string(fromByteCount: snapshot.sizeBytes, countStyle: .file))")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WorkspaceStyle.muted)
             }
             Spacer()
             Button {

@@ -250,20 +250,20 @@ struct ContentView: View {
                     } icon: {
                         Image(systemName: "checkmark.circle.fill")
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WorkspaceStyle.muted)
                 case .missing, .damaged, .invalidCustomPath:
                     Label(failureHeadline, systemImage: "exclamationmark.circle")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WorkspaceStyle.muted)
                 case .outdated(let found, _, _, _):
                     Label {
                         Text(verbatim: "tart \(found) (outdated)")
                     } icon: {
                         Image(systemName: "exclamationmark.triangle.fill")
                     }
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(WorkspaceStyle.warning)
                 }
             } else {
-                Text("Checking for tart…").foregroundStyle(.secondary)
+                Text("Checking for tart…").foregroundStyle(WorkspaceStyle.muted)
             }
             Spacer()
         }
