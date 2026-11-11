@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {
+      "label": "macOS Golden Gate · base",
+      "reference": "ghcr.io/cirruslabs/macos-golden-gate-base:latest"
+    },
+    {
+      "label": "macOS Golden Gate · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-golden-gate-vanilla:latest"
+    },
+    {
+      "label": "macOS Golden Gate · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-golden-gate-xcode:latest"
+    },
+    {
+      "label": "macOS Tahoe · base",
+      "reference": "ghcr.io/cirruslabs/macos-tahoe-base:latest"
+    },
+    {
+      "label": "macOS Tahoe · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-tahoe-vanilla:latest"
+    },
+    {
+      "label": "macOS Tahoe · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-tahoe-xcode:latest"
+    },
+    {
+      "label": "macOS Sequoia · base",
+      "reference": "ghcr.io/cirruslabs/macos-sequoia-base:latest"
+    },
+    {
+      "label": "macOS Sequoia · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-sequoia-vanilla:latest"
+    },
+    {
+      "label": "macOS Sequoia · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"
+    },
+    {
+      "label": "macOS Sonoma · base",
+      "reference": "ghcr.io/cirruslabs/macos-sonoma-base:latest"
+    },
+    {
+      "label": "macOS Sonoma · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-sonoma-vanilla:latest"
+    },
+    {
+      "label": "macOS Sonoma · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-sonoma-xcode:latest"
+    },
+    {
+      "label": "macOS Ventura · base",
+      "reference": "ghcr.io/cirruslabs/macos-ventura-base:latest"
+    },
+    {
+      "label": "macOS Ventura · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-ventura-vanilla:latest"
+    },
+    {
+      "label": "macOS Ventura · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-ventura-xcode:latest"
+    },
+    {
+      "label": "macOS Monterey · base",
+      "reference": "ghcr.io/cirruslabs/macos-monterey-base:latest"
+    },
+    {
+      "label": "macOS Monterey · vanilla",
+      "reference": "ghcr.io/cirruslabs/macos-monterey-vanilla:latest"
+    },
+    {
+      "label": "macOS Monterey · xcode",
+      "reference": "ghcr.io/cirruslabs/macos-monterey-xcode:latest"
+    },
+    {
+      "label": "Debian",
+      "reference": "ghcr.io/cirruslabs/debian:latest"
+    },
+    {
+      "label": "Fedora",
+      "reference": "ghcr.io/cirruslabs/fedora:latest"
+    },
+    {
+      "label": "Ubuntu",
+      "reference": "ghcr.io/cirruslabs/ubuntu:latest"
+    }
+  ]
+}

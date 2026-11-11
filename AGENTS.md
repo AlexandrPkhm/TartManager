@@ -61,14 +61,19 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
+├── Catalog/
+│   └── default-registry-images.json # ghcr.io/cirruslabs image list; the monthly scan updates it
 ├── Scripts/
 │   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
 │   │                              # bundle, Sparkle, signing, DMG, signed appcast
+│   ├── update-registry-catalog.sh # Scans ghcr.io/cirruslabs; updates the image list
 │   ├── tart-pin.env               # Pinned tart release: TART_VERSION and TART_SHA256
 │   └── tart-LICENSE.txt           # LICENSE of the pinned tart release; build check only
 ├── .github/
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
-│   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled
+│   └── workflows/
+│       ├── ci.yml                 # GitHub Actions tests; release tags only, currently disabled
+│       └── registry-catalog.yml   # Monthly registry scan; a change goes to a branch and an issue
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
 ├── Docs/
@@ -329,6 +334,10 @@ environment.
   then refuses the ad-hoc `Sparkle.framework`. Sign nested code inside-out
   (`Autoupdate`, `Updater.app`, `Sparkle.framework`, then the app) and never
   use `codesign --deep`.
+- Only `Scripts/update-registry-catalog.sh` may read the GitHub package pages.
+  They are not a stable API, so the app must not use them. Send a change to
+  `Catalog/default-registry-images.json` through review; never push it to
+  `main` from a workflow.
 - Keep user features in `README.md`, contributor procedures in
   `Docs/DEVELOPMENT.md`, and packaging or operations details in
   `Docs/DEPLOYMENT.md`.
