@@ -37,10 +37,12 @@ inventory a macOS interface.
 - Configure VM resources, hardware identity, and shared folders; replace a
   stopped VM's disk when needed.
 - Create, restore, and remove snapshots before experimenting with a VM.
-- Watch clone, import, export, create, and cache-cleanup jobs in the sidebar
-  **Jobs** section, and cancel a job that you no longer need.
-- Manage registry sign-in, cache cleanup, storage location, and appearance in
-  Settings.
+- Pull images from `ghcr.io/cirruslabs` in **Settings → Storage →
+  Registries**, then clone them from the Images page.
+- Watch clone, pull, import, export, create, and cache-cleanup jobs in the
+  sidebar **Jobs** section, and cancel a job that you no longer need.
+- Manage custom registry sign-in, cache cleanup, storage location, and
+  appearance in Settings.
 - Control common VM actions from the macOS menu bar while retaining the same
   safety checks as the main app.
 
@@ -110,7 +112,9 @@ switch to it. Tart Manager never switches by itself.
 When both tarts work, Tart Manager asks once which one to use. Until you
 answer, it keeps the installed tart. Settings and this question warn you
 when the selected tart is older than the other one, because VMs that a
-newer tart changed can fail to open with an older tart.
+newer tart changed can fail to open with an older tart. While the selected
+bundled tart works, Tart Manager does not look for the installed tart, so this
+warning does not show for the bundled tart.
 
 ## Using your VMs
 
@@ -126,6 +130,11 @@ newer tart changed can fail to open with an older tart.
   window, and frees its memory. **Resume** continues the session with no cold
   boot. Tart Manager shows **Suspend** only when it can confirm that the VM
   runs with `--suspendable`.
+- **Deleting a VM:** **Delete…** (in the context menu of a stopped VM) asks
+  you to confirm. **Remove the VM disk with the VM** is on by default. Turn it
+  off to keep the disk as `<VM name>.img` in the `Kept Disks` folder of the VM
+  storage folder. The kept disk uses disk space until you delete the file. A
+  stacked VM has no standalone disk, so this option is not available for it.
 - **Replacing a disk:** **Replace Disk** (in the context menu of a stopped
   VM) copies a raw disk image (`.img`) over the VM's disk and permanently
   deletes the old contents. You must type the VM's name to confirm. Stop a

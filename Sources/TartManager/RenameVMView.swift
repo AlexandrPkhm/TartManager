@@ -38,7 +38,7 @@ struct RenameVMView: View {
                 TextField("New name", text: $newName)
                 if let nameHint {
                     Label(nameHint, systemImage: "xmark.octagon")
-                        .foregroundStyle(WorkspaceStyle.danger)
+                        .foregroundStyle(WorkspaceStyle.error)
                         .font(.caption)
                 }
             }

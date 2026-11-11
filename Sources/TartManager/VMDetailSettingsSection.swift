@@ -120,7 +120,7 @@ struct VMDetailSettingsSection: View {
                 ForEach(validation.errors, id: \.self) { error in
                     Label(error, systemImage: "xmark.octagon")
                         .font(.caption)
-                        .foregroundStyle(WorkspaceStyle.danger)
+                        .foregroundStyle(WorkspaceStyle.error)
                 }
             }
             HStack {

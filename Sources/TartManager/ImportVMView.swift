@@ -24,7 +24,7 @@ struct ImportVMView: View {
                 TextField("New name", text: $name)
                 if let nameHint {
                     Label(nameHint, systemImage: "xmark.octagon")
-                        .foregroundStyle(WorkspaceStyle.danger)
+                        .foregroundStyle(WorkspaceStyle.error)
                         .font(.caption)
                 }
             }

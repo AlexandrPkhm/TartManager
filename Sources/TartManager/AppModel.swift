@@ -58,8 +58,14 @@ final class AppModel: ObservableObject {
     init(settings: AppSettings = AppSettings(),
          firstRunReminder: FirstRunReminderStore = FirstRunReminderStore(defaults: .standard),
          updater: AppUpdating? = nil,
-         prerequisiteChecker: PrerequisiteChecker? = nil) {
+         prerequisiteChecker: PrerequisiteChecker? = nil,
+         defaultRegistryStore: DefaultRegistryCatalogStore? = nil) {
         self.settings = settings
+        // `nil` means the real store, which downloads the list.
+        let registryStore = defaultRegistryStore ?? .live(settings: settings)
+        self.defaultRegistryStore = registryStore
+        self.defaultRegistryImages = registryStore.load()
+        self.registryMode = settings.registryMode
         // `nil` means the real checker, with this bundle's own tart (if any).
         self.checker = prerequisiteChecker ?? PrerequisiteChecker(
             bundledExecutablePath: BundledTartLocation.executablePath(inAppBundle: Bundle.main.bundleURL))
@@ -969,6 +975,69 @@ final class AppModel: ObservableObject {
 
     // MARK: Registries
 
+    /// The Registries panel mode, persisted through `AppSettings`.
+    @Published private(set) var registryMode: RegistryMode
+
+    func setRegistryMode(_ mode: RegistryMode) {
+        guard mode != registryMode else { return }
+        settings.registryMode = mode
+        registryMode = mode
+        Logger.registries.info("registry mode: \(mode.rawValue, privacy: .public)")
+    }
+
+    /// The images the default registry offers, for the Registries panel and
+    /// the create sheet's quick picks.
+    @Published private(set) var defaultRegistryImages: [DefaultRegistryImage]
+    private let defaultRegistryStore: DefaultRegistryCatalogStore
+    private var defaultRegistryRefreshInFlight = false
+
+    /// Replaces the list when the store downloads a newer one. Failures stay
+    /// in the log: the current list still works.
+    func refreshDefaultRegistryImages() async {
+        guard !defaultRegistryRefreshInFlight else { return }
+        defaultRegistryRefreshInFlight = true
+        defer { defaultRegistryRefreshInFlight = false }
+        if let images = await defaultRegistryStore.refreshIfDue() {
+            defaultRegistryImages = images
+        }
+    }
+
+    /// Why a pull cannot start, or nil when it can. The panel disables its
+    /// button and shows this text.
+    func pullBlockReason(reference: String) -> String? {
+        if !ImageReferenceRules.isValid(reference) {
+            return "The image reference is not valid."
+        }
+        if jobManager.runningTargets.contains(JobInfo.Kind.pull(reference: reference).target) {
+            return "This image is already being pulled."
+        }
+        guard makeTartClient() != nil else {
+            return "tart is missing, outdated, or no storage location is configured."
+        }
+        guard storageAvailability.isAvailable else {
+            return "VM storage is unavailable — the volume is not mounted."
+        }
+        return nil
+    }
+
+    /// Starts a `tart pull` job. Returns nil when the job started and a
+    /// user-facing reason otherwise.
+    @discardableResult
+    func startPull(reference: String) -> String? {
+        if let reason = pullBlockReason(reference: reference) {
+            Logger.registries.error("pull refused for \(reference, privacy: .public): \(reason, privacy: .public)")
+            return reason
+        }
+        guard let client = makeTartClient() else {
+            return "tart is unavailable."
+        }
+        guard jobManager.startPull(reference: reference, using: client) != nil else {
+            return "This image is already being pulled."
+        }
+        Logger.registries.info("pull started for \(reference, privacy: .public)")
+        return nil
+    }
+
     /// True while a registry operation is in flight; the Registries section
     /// disables both buttons while set.
     @Published private(set) var registryOperationInFlight = false
@@ -1509,6 +1578,16 @@ final class AppModel: ObservableObject {
     /// True when a delete could start right now: a stopped local VM with a
     /// usable tart and available storage (PRD Story 1 AC-6: actions disabled
     /// until storage resolves). The sheet disables its Delete button on this.
+    var keptDisksFolder: String? {
+        commandEnvironment.flatMap { VMKeptDisk.folder(environment: $0.environment) }
+    }
+
+    /// `false` for a stacked VM: it has no standalone disk to keep.
+    func canKeepDisk(vm: VMEntry) -> Bool {
+        guard let environment = commandEnvironment?.environment else { return false }
+        return VMKeptDisk.canKeep(vmName: vm.name, environment: environment)
+    }
+
     func canDelete(vm: VMEntry) -> Bool {
         guard vm.isStoppedLocal else { return false }
         guard makeTartClient() != nil else { return false }
@@ -1527,22 +1606,13 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    /// Deletes a stopped VM as an uncancellable job. The typed confirmation
-    /// is re-verified at this boundary (finding 8) — the view's gate is UX,
-    /// this is the model invariant. Every refusal is logged and presented
-    /// through the standard sheet — no silent no-ops (finding 5). The job
-    /// body calls only the injected ops, wired to TartClient.delete
+    /// Deletes a stopped VM as an uncancellable job. `removeDisk == false`
+    /// saves the disk in `keptDisksFolder` first. Every refusal is logged and
+    /// presented through the standard sheet — no silent no-ops (finding 5).
+    /// The job body calls only the injected ops, wired to TartClient.delete
     /// (finding 1): no argv or error construction exists in this layer.
     @discardableResult
-    func startDelete(vm: VMEntry, confirmation: String) -> JobInfo? {
-        guard TypedConfirmationGate.allowsProceed(typedName: confirmation, vmName: vm.name) else {
-            Logger.deleteVM.error("delete refused for \(vm.name, privacy: .public): typed confirmation mismatch")
-            present(TartOperationError(
-                operation: "delete",
-                message: "Delete refused — the typed name does not match the VM.",
-                rawDetails: ""))
-            return nil
-        }
+    func startDelete(vm: VMEntry, removeDisk: Bool) -> JobInfo? {
         guard vm.isStoppedLocal else {
             Logger.deleteVM.error("delete refused for \(vm.name, privacy: .public): not a stopped local VM")
             present(TartOperationError(
@@ -1561,11 +1631,18 @@ final class AppModel: ObservableObject {
         }
         guard let client = makeTartClient() else { return nil }
 
+        let environment = client.environment
         let job = VMDeleteJob(
             name: vm.name,
+            keepDisk: !removeDisk,
             ops: VMDeleteJob.Ops(
                 list: { try client.list() },
-                delete: { name, timeout in try client.delete(name: name, timeout: timeout) }))
+                delete: { name, timeout in try client.delete(name: name, timeout: timeout) },
+                keepDisk: { name in try VMKeptDisk.keep(vmName: name, environment: environment) },
+                discardKeptDisk: { path in
+                    try VMKeptDisk.discardIfOriginalRemains(
+                        keptPath: path, vmName: vm.name, environment: environment)
+                }))
         switch jobManager.start(kind: .deleteVM(name: vm.name), body: { context in
             try job.run(context: context)
         }) {

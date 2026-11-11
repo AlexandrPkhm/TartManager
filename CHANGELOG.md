@@ -15,6 +15,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Changed the tart banner and the error report to the app's own warning
   colors, and secondary text everywhere to the app's own gray.
 
+## 1.4.0 - 2026-11-03
+
+### Added
+
+- Added a **Default / Custom** choice to Settings → Storage → Registries.
+  **Default** shows the images of `ghcr.io/cirruslabs` and a **Pull** button.
+  **Custom** signs in to or out of a registry that you enter.
+- Added pull jobs to the **Jobs** section, with progress and cancel.
+
+### Changed
+
+- Changed the Registry URL field to accept an `https` URL as well as a host.
+- Changed the New VM quick picks to show the same image list as Settings. Tart
+  Manager now downloads this list from `raw.githubusercontent.com` at most once
+  in 24 hours.
+- Changed **Delete VM**: you no longer type the VM's name to confirm, and a
+  new **Remove the VM disk with the VM** option (on by default) lets you keep
+  the disk as a file in the `Kept Disks` folder of the VM storage folder. The
+  option is not available for stacked VMs.
+- Changed the launch check: Tart Manager no longer looks for an installed tart
+  while the selected bundled tart works. The warning about an older selected
+  tart does not show in this state.
+
+### Fixed
+
+- Fixed job cancel: a cancel that arrives while a clone, pull, or other job is
+  starting now stops its tart process.
+
 ## 1.3.0 - 2026-10-22
 
 ### Added

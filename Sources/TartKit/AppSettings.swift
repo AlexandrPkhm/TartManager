@@ -2,7 +2,9 @@ import Foundation
 import os
 
 /// Persisted app settings (`UserDefaults`-backed, injectable suite for tests).
-public struct AppSettings {
+/// `@unchecked Sendable`: the only stored property is a `UserDefaults`, which
+/// Apple documents as thread-safe.
+public struct AppSettings: @unchecked Sendable {
     public let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -40,6 +42,24 @@ public struct AppSettings {
                 defaults.removeObject(forKey: Self.storagePathKey)
             }
         }
+    }
+
+    static let registryModeKey = "registryMode"
+
+    /// The Registries panel mode; missing or unknown values use the default
+    /// registry. Set only through `AppModel.setRegistryMode(_:)`.
+    public var registryMode: RegistryMode {
+        get { RegistryMode(rawValue: defaults.string(forKey: Self.registryModeKey) ?? "") ?? .standard }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.registryModeKey) }
+    }
+
+    static let defaultRegistryRefreshAttemptKey = "defaultRegistryRefreshAttempt"
+
+    /// The last download attempt of the default registry's image list,
+    /// including failed attempts.
+    public var defaultRegistryRefreshAttempt: Date? {
+        get { defaults.object(forKey: Self.defaultRegistryRefreshAttemptKey) as? Date }
+        nonmutating set { defaults.set(newValue, forKey: Self.defaultRegistryRefreshAttemptKey) }
     }
 
     static let tartSourceKey = "tartSource"

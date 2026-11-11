@@ -23,7 +23,7 @@ struct OnboardingView: View {
                 Button("Use Default (\(StorageLocationValidator.defaultPath))") { useDefault() }
             }
             if let validation, case .invalid(_, let reason) = validation {
-                Text(reason).foregroundStyle(WorkspaceStyle.danger).font(.callout)
+                Text(reason).foregroundStyle(WorkspaceStyle.error).font(.callout)
             }
         }
         .padding(28)

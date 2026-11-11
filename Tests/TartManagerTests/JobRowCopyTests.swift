@@ -75,5 +75,7 @@ import Foundation
         #expect(JobRowCopy.title(for: .replaceDisk(name: "a", path: "/d.img"))
                 == "Replacing the disk of “a”")
         #expect(JobRowCopy.title(for: .prune) == "Pruning caches")
+        #expect(JobRowCopy.title(for: .pull(reference: "ghcr.io/cirruslabs/macos:latest"))
+                == "Pulling macos:latest")
     }
 }

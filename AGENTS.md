@@ -61,14 +61,19 @@ virtualization.
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
 │   └── TartManagerTests/          # AppModel and UI-policy unit tests
 ├── Assets/                        # Source artwork and Icon Composer source
+├── Catalog/
+│   └── default-registry-images.json # Image list that released apps download; the monthly scan updates it
 ├── Scripts/
 │   ├── package.sh                 # Newer-tart check, release build, bundled tart, app
 │   │                              # bundle, Sparkle, signing, DMG, signed appcast
+│   ├── update-registry-catalog.sh # Scans ghcr.io/cirruslabs; updates the image list
 │   ├── tart-pin.env               # Pinned tart release: TART_VERSION and TART_SHA256
 │   └── tart-LICENSE.txt           # LICENSE of the pinned tart release; build check only
 ├── .github/
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
-│   └── workflows/ci.yml           # GitHub Actions tests; release tags only, currently disabled
+│   └── workflows/
+│       ├── ci.yml                 # GitHub Actions tests; release tags only, currently disabled
+│       └── registry-catalog.yml   # Monthly registry scan; a change goes to a branch and an issue
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
 ├── Docs/
@@ -147,7 +152,9 @@ virtualization.
   decision through `UpdateInstallGate`.
 - Resolve tart only through `PrerequisiteChecker.check(preference:)`, which
   checks the bundled tart (`Contents/Helpers/tart.app`) and the installed
-  tart together. Never fall back from the selected source to the other
+  tart together, except when the stored source is the bundled tart and it
+  works: then `TartRuntimeReport.installed` is `nil` and no scan runs. Never
+  fall back from the selected source to the other
   one; report the failure and offer the switch. Gate every source or
   custom-path change with `TartSourceSwitchGate` in `AppModel`.
 - Route Dock-icon and main-window decisions through
@@ -233,7 +240,7 @@ environment.
   `Sources/TartManager/WorkspaceStyle.swift`. Define a new color there with
   explicit light and dark values; never hardcode a color in a view.
   Never use SwiftUI system colors (`.red`, `.orange`, `.yellow`, `.green`,
-  `.secondary`, `.quaternary`, `Color.white`) in a view: use `danger` for
+  `.secondary`, `.quaternary`, `Color.white`) in a view: use `error` for
   errors, `warning` and `warningBackground` for cautions, `green` for the
   running state, `muted` for secondary text, and `onPrimary` on `primary`.
   `WorkspaceStyleTests.viewsUseNoSystemColors` enforces this; only
@@ -265,8 +272,8 @@ environment.
   only counts and mount tags.
 - Do not create silent no-ops: log and/or present every gate refusal, race
   reconciliation, and deliberate degradation. Re-verify destructive operations
-  with `TypedConfirmationGate`, `RestoreGate`, `ReplaceDiskGuard`, or
-  `CloneGuard` at the model boundary.
+  with `RestoreGate`, `ReplaceDiskGuard`, or `CloneGuard` at the model
+  boundary.
 
 ### Testing
 
@@ -314,6 +321,16 @@ environment.
 - Treat registry credentials and notarization environment variables as secrets:
   never hardcode, log, or persist them outside the operating system's intended
   credential facilities.
+- `Catalog/default-registry-images.json` is live data: released apps download
+  it from `main`. Keep `schemaVersion` at `1` unless old apps can ignore the
+  change, and list only `ghcr.io/cirruslabs/` references.
+  `DefaultRegistryCatalog` rejects all others.
+- Only `Scripts/update-registry-catalog.sh` may read the GitHub package pages.
+  They are not a stable API, so the app must not use them. Send a change to
+  `Catalog/default-registry-images.json` through review; never push it to
+  `main` from a workflow.
+- `registryMode` lives in `AppSettings`. Set it only through
+  `AppModel.setRegistryMode(_:)`.
 - Sparkle owns the `SUEnableAutomaticChecks`, `SULastCheckTime`, and
   `SUSkippedVersion` preference keys. Do not add duplicate keys to
   `AppSettings`; read and write them through `SPUUpdater` in

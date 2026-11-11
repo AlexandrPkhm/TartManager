@@ -37,9 +37,9 @@ import Testing
 
     // MARK: - Tokens
 
-    @Test func dangerHasExplicitLightAndDarkValues() {
-        #expect(hex(WorkspaceStyle.danger, .aqua) == 0xc0281e)
-        #expect(hex(WorkspaceStyle.danger, .darkAqua) == 0xff8b80)
+    @Test func errorHasExplicitLightAndDarkValues() {
+        #expect(hex(WorkspaceStyle.error, .aqua) == 0xc4291c)
+        #expect(hex(WorkspaceStyle.error, .darkAqua) == 0xff7b72)
     }
 
     @Test func onPrimaryIsWhiteInBothAppearances() {
@@ -48,13 +48,13 @@ import Testing
         }
     }
 
-    @Test func dangerTextReadsOnEveryWorkspaceGround() {
+    @Test func errorTextReadsOnEveryWorkspaceGround() {
         let grounds = [WorkspaceStyle.background, WorkspaceStyle.sidebar,
                        WorkspaceStyle.panel, WorkspaceStyle.warningBackground]
         for appearance in appearances {
             for ground in grounds {
-                let ratio = contrast(hex(WorkspaceStyle.danger, appearance), hex(ground, appearance))
-                #expect(ratio >= 4.5, "danger on a ground in \(appearance.rawValue): \(ratio)")
+                let ratio = contrast(hex(WorkspaceStyle.error, appearance), hex(ground, appearance))
+                #expect(ratio >= 4.5, "error on a ground in \(appearance.rawValue): \(ratio)")
             }
         }
     }

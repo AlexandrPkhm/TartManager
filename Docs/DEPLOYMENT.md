@@ -436,9 +436,9 @@ signing identity, so plan for a manual install after any key change.
 | VM storage volume | Local filesystem | Existing, writable directory | Chosen at first launch (default `~/.tart`) |
 
 There are no databases, cache servers, message queues, or object-storage
-services. The app itself writes no data files outside UserDefaults and
-temporary run logs; all VM state lives under the configured storage path and
-is managed by the `tart` CLI.
+services. The app itself writes only UserDefaults, temporary run logs, and a
+saved copy of the default registry's image list in Application Support. All VM
+state lives under the configured storage path and is managed by the `tart` CLI.
 
 ### Operating system
 
@@ -564,10 +564,16 @@ Production machines must allow outbound HTTPS from the `tart` process to:
 - IPSW restore-image endpoints, when VMs are created from IPSW (`tart create
   --from-ipsw`)
 
-The tart CLI starts that traffic. The app itself connects only to GitHub for
-updates: `github.com` and the release-asset download host it redirects to
-(`release-assets.githubusercontent.com` or `objects.githubusercontent.com`).
-Update checks send no system profile; GitHub receives the IP address and the
+The tart CLI starts that traffic. The app itself connects only to GitHub:
+
+- For updates: `github.com` and the release-asset download host it redirects to
+  (`release-assets.githubusercontent.com` or `objects.githubusercontent.com`).
+- For the default registry's image list: `raw.githubusercontent.com`, at most
+  one attempt in 24 hours while the Registries panel or the New VM sheet is
+  open. A failed attempt also counts. If this host is blocked, the app uses
+  its saved or built-in list.
+
+These requests send no system profile; GitHub receives the IP address and the
 user agent.
 
 ## Error Reporting

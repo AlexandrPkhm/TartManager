@@ -67,6 +67,23 @@ public enum RegistryCredentialRules {
         }
     }
 
+    /// The host in a Registry URL field: `ghcr.io`, `https://ghcr.io/`, and
+    /// `registry.example.com:5000` are usable because `tart login` takes a
+    /// host. Returns nil for a path, for user information, and for any scheme
+    /// other than `https`, because tart needs a flag for an insecure registry.
+    public static func normalizedHost(from input: String) -> String? {
+        var host = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if host.lowercased().hasPrefix("https://") {
+            host.removeFirst("https://".count)
+        }
+        if host.hasSuffix("/") {
+            host.removeLast()
+        }
+        guard !host.contains(where: { "/@?#".contains($0) }),
+              isValidHost(host) else { return nil }
+        return host
+    }
+
     /// Predicate the Registries section renders inline: the view only
     /// renders results of pure TartKit functions.
     public static func isValidHost(_ host: String) -> Bool {

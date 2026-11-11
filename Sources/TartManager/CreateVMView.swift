@@ -1,22 +1,6 @@
 import SwiftUI
 import TartKit
 
-struct OCIPreset: Identifiable {
-    let id = UUID()
-    let label: String
-    let reference: String
-}
-
-/// Clickable presets for the standard Cirrus Labs catalog (maintained list;
-/// free-form entry is always available next to it).
-let ociPresets: [OCIPreset] = [
-    OCIPreset(label: "macOS Tahoe · base", reference: "ghcr.io/cirruslabs/macos-tahoe-base:latest"),
-    OCIPreset(label: "macOS Tahoe · vanilla", reference: "ghcr.io/cirruslabs/macos-tahoe-vanilla:latest"),
-    OCIPreset(label: "macOS Tahoe · Xcode", reference: "ghcr.io/cirruslabs/macos-tahoe-xcode:latest"),
-    OCIPreset(label: "macOS Sequoia · base", reference: "ghcr.io/cirruslabs/macos-sequoia-base:latest"),
-    OCIPreset(label: "macOS Sonoma · base", reference: "ghcr.io/cirruslabs/macos-sonoma-base:latest"),
-]
-
 enum CreateMode: Hashable {
     case image
     case ipsw
@@ -55,12 +39,12 @@ struct CreateVMView: View {
                 .pickerStyle(.segmented)
                 if !name.isEmpty && !model.isNameAvailable(name) {
                     Label("A VM or image with this name already exists.", systemImage: "xmark.octagon")
-                        .foregroundStyle(WorkspaceStyle.danger)
+                        .foregroundStyle(WorkspaceStyle.error)
                         .font(.caption)
                 }
                 if let blockedReason {
                     Label(blockedReason, systemImage: "xmark.octagon")
-                        .foregroundStyle(WorkspaceStyle.danger)
+                        .foregroundStyle(WorkspaceStyle.error)
                         .font(.caption)
                 }
             }
@@ -107,10 +91,11 @@ struct CreateVMView: View {
         Section("Image") {
             TextField("Image reference (host/repo:tag)", text: $reference)
             Menu("Quick picks (Cirrus Labs)") {
-                ForEach(ociPresets) { preset in
-                    Button(preset.label) { reference = preset.reference }
+                ForEach(model.defaultRegistryImages) { image in
+                    Button(image.label) { reference = image.reference }
                 }
             }
+            .task { await model.refreshDefaultRegistryImages() }
         }
     }
 
@@ -138,7 +123,7 @@ struct CreateVMView: View {
             TextField("Disk size (GB)", text: $diskSizeText)
             if let diskSizeError {
                 Label(diskSizeError, systemImage: "xmark.octagon")
-                    .foregroundStyle(WorkspaceStyle.danger)
+                    .foregroundStyle(WorkspaceStyle.error)
                     .font(.caption)
             }
             Label("The first run of a fresh IPSW VM requires completing "
