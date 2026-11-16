@@ -1,10 +1,10 @@
 name: Pages
 
-# Publishes site/ and the README artwork in Assets/ to GitHub Pages.
+# Publishes Site/ and the README artwork in Assets/ to GitHub Pages.
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'Assets/**', '.github/workflows/pages.yml']
+    paths: ['Site/**', 'Assets/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -29,7 +29,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/assets
-          cp -R site/. _site/
+          cp -R Site/. _site/
           cp Assets/AppIcon.png Assets/TartManager.png _site/assets/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5

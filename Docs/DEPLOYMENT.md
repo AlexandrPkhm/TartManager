@@ -407,6 +407,22 @@ delete the export file:
    gh release create vX.Y.Z dist/TartManager-X.Y.Z.dmg dist/updates/appcast.xml --notes-file dist/updates/TartManager-X.Y.Z.md
    ```
 
+6. Update the Homebrew cask in
+   [AlexandrPkhm/homebrew-tap](https://github.com/AlexandrPkhm/homebrew-tap).
+   Get the DMG checksum:
+
+   ```sh
+   shasum -a 256 dist/TartManager-X.Y.Z.dmg
+   ```
+
+   In `Casks/tart-manager.rb`, set `version` to `X.Y.Z` and `sha256` to the
+   checksum. Commit `chore: bump tart-manager to X.Y.Z` and push. Then check
+   the cask:
+
+   ```sh
+   brew update && brew audit --cask --online alexandrpkhm/tap/tart-manager
+   ```
+
 The tag must be `vX.Y.Z`, because the feed's download URL contains it. Users
 on 1.0.0 and 1.1.0 have no updater and must install 1.2.0 by hand.
 
@@ -430,13 +446,13 @@ signing identity, so plan for a manual install after any key change.
 ## Project Website
 
 The project website is https://alexandrpkhm.github.io/TartManager/. It is
-one static page, `site/index.html`, with no build step.
+one static page, `Site/index.html`, with no build step.
 
 | Item | Value |
 | --- | --- |
-| Source | `site/` and `Assets/AppIcon.png`, `Assets/TartManager.png` |
+| Source | `Site/` and `Assets/AppIcon.png`, `Assets/TartManager.png` |
 | Workflow | `.github/workflows/pages.yml` |
-| Trigger | Push to `main` that changes `site/`, `Assets/`, or the workflow; manual run |
+| Trigger | Push to `main` that changes `Site/`, `Assets/`, or the workflow; manual run |
 | Pages source | **GitHub Actions** (repository Settings → Pages) |
 | Network | The page reads the star count from `api.github.com` in the browser |
 
@@ -448,7 +464,7 @@ To preview the site locally, copy the files into one folder and serve it:
 
 ```sh
 mkdir -p /tmp/tm-site/assets
-cp -R site/. /tmp/tm-site/
+cp -R Site/. /tmp/tm-site/
 cp Assets/AppIcon.png Assets/TartManager.png /tmp/tm-site/assets/
 python3 -m http.server 8765 --directory /tmp/tm-site
 ```

@@ -188,6 +188,41 @@
     }
     .note strong { color: var(--text); }
 
+    .cmd {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 720px;
+      margin: 0 auto 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px 14px 20px;
+    }
+    .cmd code {
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      white-space: nowrap;
+      background: none;
+      padding: 0;
+      font-size: 15px;
+    }
+    .cmd code::before { content: "$ "; color: var(--muted); }
+    .cmd button {
+      flex: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .or { text-align: center; color: var(--muted); margin: 0 0 22px; font-size: 15px; }
+
     /* Footer */
     footer {
       margin-top: 88px;
@@ -286,7 +321,12 @@
 
       <section id="install">
         <h2>Install in a minute</h2>
-        <p class="sub">Tart Manager includes tart, so you do not need Homebrew or a separate install.</p>
+        <p class="sub">Tart Manager includes tart, so you do not need a separate tart install.</p>
+        <div class="cmd">
+          <code id="brew-cmd">brew install --cask alexandrpkhm/tap/tart-manager</code>
+          <button type="button" id="copy-brew">Copy</button>
+        </div>
+        <p class="or">Or install from the DMG:</p>
         <ol class="steps">
           <li>Download the DMG from the <a href="https://github.com/AlexandrPkhm/TartManager/releases/latest">latest release</a>.</li>
           <li>Open the DMG and drag <strong>Tart Manager</strong> to <strong>Applications</strong>.</li>
@@ -324,6 +364,17 @@
         }
       })
       .catch(function () {});
+
+    // Copy the Homebrew command. If the clipboard is not available, the button does nothing.
+    document.getElementById("copy-brew").addEventListener("click", function () {
+      var button = this;
+      var text = document.getElementById("brew-cmd").textContent;
+      if (!navigator.clipboard) { return; }
+      navigator.clipboard.writeText(text).then(function () {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      }).catch(function () {});
+    });
   </script>
 </body>
 </html>
