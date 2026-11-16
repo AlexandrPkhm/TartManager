@@ -1,14 +1,16 @@
 import Testing
 import Foundation
+import SharedTestSupport
 import AppKit
 @testable import TartKit
 @testable import TartManager
 
 @Suite @MainActor struct AppModelTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppModelTests")
+
     func makeIsolatedModel() -> AppModel {
-        let suite = "AppModelTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         return AppModel(settings: AppSettings(defaults: defaults))
     }
 
@@ -60,7 +62,7 @@ import AppKit
     }
 
     @Test func appearanceLoadsSavedChoiceAndPersistsChanges() {
-        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         settings.appearance = .dark
         let model = AppModel(settings: settings)
@@ -76,7 +78,7 @@ import AppKit
         defer { NSApplication.shared.appearance = originalAppearance }
         NSApplication.shared.appearance = nil
 
-        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         settings.appearance = .dark
 
@@ -90,7 +92,7 @@ import AppKit
         defer { NSApplication.shared.appearance = originalAppearance }
         NSApplication.shared.appearance = nil
 
-        let defaults = UserDefaults(suiteName: "AppearanceTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         let model = AppModel(settings: AppSettings(defaults: defaults))
 
         model.appearance = .light
@@ -142,9 +144,7 @@ import AppKit
         try script.write(toFile: binaryPath, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
 
-        let suite = "AppModelTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let model = AppModel(settings: AppSettings(defaults: defaults))
         model.settings.storagePath = dir
         model.prerequisite = .ok(version: TartVersion(major: 2, minor: 32, patch: 0),
@@ -241,9 +241,7 @@ final class AppModelTestGate: @unchecked Sendable {
 // and the disk-size start gate.
 extension AppModelTests {
     func makeReminderModel() -> (model: AppModel, defaults: UserDefaults) {
-        let suite = "AppModelTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let model = AppModel(
             settings: AppSettings(defaults: defaults),
             firstRunReminder: FirstRunReminderStore(defaults: defaults))
@@ -303,9 +301,7 @@ extension AppModelTests {
     /// recording stub sees the readiness probes, the agent kickstart, and the
     /// guest watchdog install — with zero user-facing surface.
     @Test func runOfADarwinVMKicksAndInstallsTheGuestClipboardWatchdog() async throws {
-        let suite = "AppModelTests-clipboard-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let dir = makeTempDirectory()
         let model = AppModel(settings: AppSettings(defaults: defaults))
         _ = model.attemptChooseStorage(path: dir)
@@ -415,9 +411,7 @@ extension AppModelTests {
     /// reaches tart via stdin, never argv, and is absent from every
     /// app-owned persistence sink afterwards.
     @Test func registryLoginDeliversSecretAndAppStoresNothing() async throws {
-        let suite = "AppModelTests-registry-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let model = AppModel(settings: AppSettings(defaults: defaults))
         let dir = makeTempDirectory()
         _ = model.attemptChooseStorage(path: dir)

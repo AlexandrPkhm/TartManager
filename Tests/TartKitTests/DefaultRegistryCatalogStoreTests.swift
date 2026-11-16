@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 
 @Suite struct DefaultRegistryCatalogStoreTests {
@@ -35,8 +36,13 @@ import Foundation
         """.utf8)
     }
 
-    private let settings = AppSettings(
-        defaults: UserDefaults(suiteName: "DefaultRegistryCatalogStoreTests-\(UUID().uuidString)")!)
+    /// Removes this test's `UserDefaults` domain and its plist file.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "DefaultRegistryCatalogStoreTests")
+    private let settings: AppSettings
+
+    init() {
+        settings = AppSettings(defaults: isolatedDefaults.make())
+    }
 
     private func makeStore(_ stub: FetchStub, now: Date = Date()) -> DefaultRegistryCatalogStore {
         DefaultRegistryCatalogStore(cacheFile: cacheFile,

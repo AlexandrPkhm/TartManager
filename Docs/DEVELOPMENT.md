@@ -235,7 +235,9 @@ style reference for this repository.
 
 All tests use Swift Testing (`@Suite` / `@Test`) and are hermetic: no real
 `tart`, no GUI, no network. The fake CLI is built with the `StubBinary`
-helper (`Tests/TartKitTests/TestSupport/`).
+helper (`Tests/TartKitTests/TestSupport/`). Preferences come from
+`IsolatedDefaults` (`Tests/SharedTestSupport/`): its in-memory domains leave
+no plist file in `~/Library/Preferences`.
 
 Run the full suite — **always with `--no-parallel`**, the project's
 deterministic mode:
@@ -309,8 +311,8 @@ Follow the layered structure — the app target never touches the CLI:
    its default and validation.
 2. Persist through the single validated write path in `AppModel` and log
    the transition (category `settings`).
-3. Add an `AppSettingsTests` case with an isolated
-   `UserDefaults(suiteName:)`.
+3. Add an `AppSettingsTests` case that gets its defaults from the suite's
+   `IsolatedDefaults`.
 
 ### Watching the app's logs
 

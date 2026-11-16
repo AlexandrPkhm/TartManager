@@ -1,13 +1,14 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 
 @Suite struct AppSettingsTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppSettingsTests")
+
     func makeIsolatedDefaults() -> UserDefaults {
-        let suite = "AppSettingsTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+        isolatedDefaults.make()
     }
 
     @Test func roundTripsStoragePath() {

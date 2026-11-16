@@ -1,11 +1,15 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 @testable import TartManager
 
 @Suite @MainActor struct AppModelRegistryTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppModelRegistryTests")
+
     private func makeDefaults() -> UserDefaults {
-        UserDefaults(suiteName: "AppModelRegistryTests-\(UUID().uuidString)")!
+        isolatedDefaults.make()
     }
 
     private func makeStore(fetch: @escaping DefaultRegistryCatalogStore.Fetch) -> DefaultRegistryCatalogStore {

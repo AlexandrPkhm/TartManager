@@ -1,11 +1,15 @@
 import Foundation
+import SharedTestSupport
 import Testing
 @testable import TartKit
 
 @MainActor
 @Suite struct CachePruneCoordinatorTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "CachePruneCoordinatorTests")
+
     private func settings() -> AppSettings {
-        let defaults = UserDefaults(suiteName: "CachePruneCoordinatorTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         settings.storagePath = "/tmp/cache-prune-home"
         return settings

@@ -1,11 +1,15 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 @testable import TartManager
 
 /// The tart source wiring in `AppModel`: the default-source decision, the
 /// one-time prompt, gated switches, the custom path, and client rebuilds.
 @Suite @MainActor struct AppModelTartSourceTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppModelTartSourceTests")
+
     /// A fake `tart` in its own folder: prints `version` for `--version`,
     /// answers `list` with `[]`, and appends every other invocation (with
     /// its `TART_HOME`) to `invocation.txt`. TartKitTests' `StubBinary` is
@@ -57,9 +61,7 @@ import Foundation
 
     private func makeFixture(bundled: TartStub?, installed: TartStub?,
                              storedSource: TartSource? = nil) -> Fixture {
-        let suite = "AppModelTartSourceTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         let storage = FileManager.default.temporaryDirectory
             .appendingPathComponent("tartmanager-tests-\(UUID().uuidString)").path

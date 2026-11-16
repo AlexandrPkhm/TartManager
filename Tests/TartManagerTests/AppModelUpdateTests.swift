@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 @testable import TartManager
 
@@ -34,10 +35,11 @@ final class FakeUpdater: AppUpdating {
 }
 
 @Suite @MainActor struct AppModelUpdateTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppModelUpdateTests")
+
     private func makeModel() -> (AppModel, FakeUpdater) {
-        let suite = "AppModelUpdateTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let updater = FakeUpdater()
         let model = AppModel(settings: AppSettings(defaults: defaults), updater: updater)
         return (model, updater)
