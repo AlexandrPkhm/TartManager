@@ -1,12 +1,16 @@
 import Testing
 import Foundation
+import SharedTestSupport
 import Combine
 @testable import TartKit
 @testable import TartManager
 
 @Suite @MainActor struct CachePruneAppModelTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "CachePruneAppModelTests")
+
     @Test func savedManualPolicyDisablesReclamationForEveryClient() throws {
-        let defaults = UserDefaults(suiteName: "CachePruneAppModelTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         // Zero is the persisted Manual choice; restore it as an app relaunch would.
         defaults.set(0, forKey: "pruneRetentionDays")
         let settings = AppSettings(defaults: defaults)
@@ -161,7 +165,7 @@ import Combine
         """
         try script.write(toFile: binary, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary)
-        let defaults = UserDefaults(suiteName: "CachePruneAppModelTests-\(UUID().uuidString)")!
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         settings.storagePath = storage.path
         settings.cachePrunePolicy = policy

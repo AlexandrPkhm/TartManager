@@ -19,8 +19,11 @@ let package = Package(
             dependencies: ["TartKit", .product(name: "Sparkle", package: "Sparkle")],
             resources: [.copy("Resources/AppIcon.icns")]
         ),
-        .testTarget(name: "TartKitTests", dependencies: ["TartKit"]),
-        .testTarget(name: "TartManagerTests", dependencies: ["TartManager", "TartKit"]),
+        // Test-only helpers that both test targets share.
+        .target(name: "SharedTestSupport", path: "Tests/SharedTestSupport"),
+        .testTarget(name: "TartKitTests", dependencies: ["TartKit", "SharedTestSupport"]),
+        .testTarget(name: "TartManagerTests",
+                    dependencies: ["TartManager", "TartKit", "SharedTestSupport"]),
     ],
     swiftLanguageModes: [.v5]
 )

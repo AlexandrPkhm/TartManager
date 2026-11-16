@@ -1,20 +1,22 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 @testable import TartManager
 
 /// `AppModel.startDelete` end to end with a fake tart that removes the VM
 /// folder, as `tart delete` does.
 @Suite @MainActor struct AppModelDeleteTests {
+    /// Removes this test's `UserDefaults` domains and their plist files.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "AppModelDeleteTests")
+
     struct Fixture {
         let model: AppModel
         let home: String
     }
 
     private func makeFixture() throws -> Fixture {
-        let suite = "AppModelDeleteTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = isolatedDefaults.make()
         let settings = AppSettings(defaults: defaults)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("tartmanager-tests-\(UUID().uuidString)").path

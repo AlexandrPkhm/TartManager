@@ -56,6 +56,7 @@ virtualization.
 │       │                          # UpdateController (the only Sparkle import)
 │       └── Resources/             # Packaged app resources
 ├── Tests/
+│   ├── SharedTestSupport/         # IsolatedDefaults and InMemoryDefaults for both test targets
 │   ├── TartKitTests/              # Hermetic TartKit suites, fixtures, and test support
 │   │   ├── Fixtures/              # Captured tart output for analyzer tests
 │   │   └── TestSupport/           # StubBinary, CaptureFile, and VM storage fixtures
@@ -287,7 +288,13 @@ environment.
   a `Tests` suffix.
 - Keep tests hermetic. Use `StubBinary` for fake tart executables,
   `VMStorageFixture` for storage layouts, injected closures for collaborators,
-  and isolated `UserDefaults(suiteName:)` instances for preferences.
+  and isolated `UserDefaults` domains for preferences.
+- Get isolated `UserDefaults` only from `IsolatedDefaults.make()` in
+  `Tests/SharedTestSupport/`. Store one `IsolatedDefaults` as a suite
+  property, so its `deinit` removes the domain and its plist when the test
+  ends. Never call `UserDefaults(suiteName:)` in a test. `cfprefsd` keeps a
+  plist in `~/Library/Preferences` for every domain that gets a write, and
+  `removePersistentDomain(forName:)` does not delete it.
 - Read a stub's capture file through `CaptureFile.waitForLines(atPath:count:)`
   with the number of lines the stub writes. Do not poll only
   `FileManager.fileExists`: the shell creates the file before it writes the

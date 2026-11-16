@@ -1,16 +1,19 @@
 import Testing
 import Foundation
+import SharedTestSupport
 @testable import TartKit
 
 @Suite struct FirstRunReminderStoreTests {
-    func makeStore() -> (store: FirstRunReminderStore, suite: String) {
-        let suite = "tartmanager-tests-\(UUID().uuidString)"
-        return (FirstRunReminderStore(defaults: UserDefaults(suiteName: suite)!), suite)
+    /// Removes this test's `UserDefaults` domain and its plist file.
+    private let isolatedDefaults = IsolatedDefaults(prefix: "FirstRunReminderStoreTests")
+
+    func makeStore() -> (store: FirstRunReminderStore, defaults: UserDefaults) {
+        let defaults = isolatedDefaults.make()
+        return (FirstRunReminderStore(defaults: defaults), defaults)
     }
 
     @Test func flagContainsUnflagRoundTrip() {
-        let (store, suite) = makeStore()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (store, _) = makeStore()
         #expect(!store.contains("vm-a"))
         store.flag("vm-a")
         #expect(store.contains("vm-a"))
@@ -20,16 +23,14 @@ import Foundation
     }
 
     @Test func flagsPersistAcrossStoreInstances() {
-        let (store, suite) = makeStore()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (store, defaults) = makeStore()
         store.flag("vm-a")
-        let revived = FirstRunReminderStore(defaults: UserDefaults(suiteName: suite)!)
+        let revived = FirstRunReminderStore(defaults: defaults)
         #expect(revived.contains("vm-a")) // survives app relaunch
     }
 
     @Test func pruneKeepsOnlyLiveNames() {
-        let (store, suite) = makeStore()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (store, _) = makeStore()
         store.flag("vm-a")
         store.flag("vm-b")
         store.prune(keeping: Set(["vm-b"])) // vm-a was deleted
@@ -38,8 +39,7 @@ import Foundation
     }
 
     @Test func flagIsIdempotent() {
-        let (store, suite) = makeStore()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (store, _) = makeStore()
         store.flag("vm-a")
         store.flag("vm-a")
         store.unflag("vm-a")
