@@ -61,7 +61,13 @@ brew install cirruslabs/cli/tart
 
 ## Install
 
-Download the DMG from the [latest GitHub release](../../releases/latest),
+Install Tart Manager with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask alexandrpkhm/tap/tart-manager
+```
+
+Or download the DMG from the [latest GitHub release](../../releases/latest),
 open it, and drag **Tart Manager** to **Applications**.
 
 > **Unsigned release:** Tart Manager is not signed with an Apple Developer ID
