@@ -17,13 +17,12 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Build and deploy are separate jobs. In one job, deploy-pages can look for the
+# artifact before GitHub lists it and fail with "No artifacts named github-pages".
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
       # The page reads its images from assets/. Copy them from Assets/ so they have one source.
@@ -37,5 +36,14 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
