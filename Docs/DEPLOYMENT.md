@@ -20,6 +20,7 @@ here.
     - [Signing key](#signing-key)
     - [Release procedure](#release-procedure)
     - [Key loss and key leak](#key-loss-and-key-leak)
+- [Project Website](#project-website)
 - [Infrastructure Dependencies](#infrastructure-dependencies)
   - [Operating system](#operating-system)
   - [tart CLI](#tart-cli)
@@ -425,6 +426,38 @@ on 1.0.0 and 1.1.0 have no updater and must install 1.2.0 by hand.
 Sparkle accepts an update with a new public key only when the Apple code
 signatures of the old and new app match. Ad-hoc builds have no stable
 signing identity, so plan for a manual install after any key change.
+
+## Project Website
+
+The project website is https://alexandrpkhm.github.io/TartManager/. It is
+one static page, `site/index.html`, with no build step.
+
+| Item | Value |
+| --- | --- |
+| Source | `site/` and `Assets/AppIcon.png`, `Assets/TartManager.png` |
+| Workflow | `.github/workflows/pages.yml` |
+| Trigger | Push to `main` that changes `site/`, `Assets/`, or the workflow; manual run |
+| Pages source | **GitHub Actions** (repository Settings → Pages) |
+| Network | The page reads the star count from `api.github.com` in the browser |
+
+The workflow copies the two images into `assets/` next to the page, so the
+README and the site use the same files. The download button links to the
+latest release page, so a new release needs no site change.
+
+To preview the site locally, copy the files into one folder and serve it:
+
+```sh
+mkdir -p /tmp/tm-site/assets
+cp -R site/. /tmp/tm-site/
+cp Assets/AppIcon.png Assets/TartManager.png /tmp/tm-site/assets/
+python3 -m http.server 8765 --directory /tmp/tm-site
+```
+
+To publish without a change, run the **Pages** workflow manually:
+
+```sh
+gh workflow run pages.yml
+```
 
 ## Infrastructure Dependencies
 

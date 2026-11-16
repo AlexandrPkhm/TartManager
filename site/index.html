@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tart Manager — a Mac app for tart VMs</title>
+  <meta name="description" content="Tart Manager is a free, open-source macOS app to run, stop, suspend, create, clone, and snapshot tart virtual machines without the terminal.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/png" href="assets/AppIcon.png">
+  <link rel="apple-touch-icon" href="assets/AppIcon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Tart Manager — a Mac app for tart VMs">
+  <meta property="og:description" content="Run, stop, suspend, create, clone, and snapshot tart VMs on Apple silicon without the terminal. Free and open source.">
+  <meta property="og:url" content="https://alexandrpkhm.github.io/TartManager/">
+  <meta property="og:image" content="https://alexandrpkhm.github.io/TartManager/assets/TartManager.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --text: #16181d;
+      --muted: #5c6370;
+      --border: #e3e6eb;
+      --accent: #1762ce;
+      --accent-text: #ffffff;
+      --accent-soft: #e8f0fc;
+      --shadow: 0 20px 60px rgba(20, 40, 80, 0.16);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111317;
+        --surface: #1a1d23;
+        --text: #eceef2;
+        --muted: #9aa1ad;
+        --border: #2b2f37;
+        --accent: #79acff;
+        --accent-text: #0b1a33;
+        --accent-soft: #1b2638;
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--accent-soft);
+      padding: 0.1em 0.35em;
+      border-radius: 5px;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    /* Header */
+    header.top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; }
+    .brand:hover { text-decoration: none; }
+    .brand img { width: 32px; height: 32px; }
+    nav a { color: var(--muted); margin-left: 22px; font-size: 15px; }
+
+    /* Hero */
+    .hero { text-align: center; padding: 56px 0 40px; }
+    .hero .icon { width: 128px; height: 128px; filter: drop-shadow(0 10px 24px rgba(0,0,0,0.18)); }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 60px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      margin: 22px 0 14px;
+    }
+    .hero p.lead {
+      font-size: clamp(18px, 2.2vw, 22px);
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 30px;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+    .btn:hover { text-decoration: none; border-color: var(--accent); }
+    .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .btn.primary:hover { filter: brightness(1.08); }
+    .btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .btn .count {
+      font-weight: 500;
+      color: var(--muted);
+      border-left: 1px solid var(--border);
+      padding-left: 10px;
+      margin-left: 2px;
+    }
+    .btn .count:empty { display: none; }
+    .meta { margin-top: 16px; color: var(--muted); font-size: 14px; }
+
+    /* Screenshot */
+    .shot { margin: 28px auto 0; max-width: 1000px; }
+    .shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Sections */
+    section { padding: 72px 0 0; }
+    section h2 {
+      font-size: clamp(26px, 3.4vw, 34px);
+      letter-spacing: -0.01em;
+      text-align: center;
+      margin: 0 0 10px;
+    }
+    section p.sub { text-align: center; color: var(--muted); margin: 0 auto 36px; max-width: 620px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .card .glyph {
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 20px;
+      margin-bottom: 14px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+    /* Install */
+    .steps { counter-reset: step; list-style: none; padding: 0; margin: 0 auto; max-width: 720px; }
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 0 0 22px 52px;
+    }
+    .steps li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: -2px;
+      width: 34px; height: 34px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .note {
+      max-width: 720px;
+      margin: 8px auto 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: var(--muted);
+      font-size: 15.5px;
+    }
+    .note strong { color: var(--text); }
+
+    /* Footer */
+    footer {
+      margin-top: 88px;
+      padding: 32px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    footer .row { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
+    footer p { margin: 0; }
+
+    @media (max-width: 600px) {
+      .wrap { padding: 0 16px; }
+      nav a:not(.gh) { display: none; }
+      .hero { padding-top: 32px; }
+      .hero .icon { width: 96px; height: 96px; }
+      .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="./"><img src="assets/AppIcon.png" alt=""> Tart Manager</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a class="gh" href="https://github.com/AlexandrPkhm/TartManager">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="hero">
+        <img class="icon" src="assets/AppIcon.png" alt="Tart Manager app icon">
+        <h1>Your tart VMs,<br>in a native Mac app.</h1>
+        <p class="lead">
+          Run, stop, suspend, create, clone, and snapshot
+          <a href="https://github.com/openai/tart">tart</a> virtual machines
+          on Apple silicon without the terminal.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/AlexandrPkhm/TartManager/releases/latest">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg>
+            Download for Mac
+          </a>
+          <a class="btn" href="https://github.com/AlexandrPkhm/TartManager">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.53L12 17.5l-5.87 3.07 1.12-6.53L2.5 9.41l6.56-.95L12 2.5z"/></svg>
+            Star on GitHub
+            <span class="count" id="stars"></span>
+          </a>
+        </div>
+        <p class="meta">Free and open source (MIT) · macOS 14 or later · Apple silicon · tart included</p>
+      </div>
+
+      <div class="shot">
+        <img src="assets/TartManager.png" width="2000" height="1649"
+             alt="Tart Manager main window with the VM inventory and a VM overview">
+      </div>
+
+      <section id="features">
+        <h2>Everything you do with tart, one click away</h2>
+        <p class="sub">Tart stays the VM engine. Tart Manager gives your local VMs a Mac interface with safety checks.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="glyph" aria-hidden="true">▶</div>
+            <h3>Run, suspend, stop</h3>
+            <p>Start a VM, suspend a macOS guest and resume it with no cold boot, stop it gracefully, or force-stop it after you confirm.</p>
+          </div>
+          <div class="card">
+            <div class="glyph" aria-hidden="true">＋</div>
+            <h3>Create and clone</h3>
+            <p>Create VMs from OCI images or IPSW restore images, pull images from a registry, import <code>.tvm</code> archives, and clone VMs.</p>
+          </div>
+          <div class="card">
+            <div class="glyph" aria-hidden="true">◷</div>
+            <h3>Snapshots</h3>
+            <p>Take a snapshot before you experiment. Restore it or remove it later.</p>
+          </div>
+          <div class="card">
+            <div class="glyph" aria-hidden="true">⚙︎</div>
+            <h3>Configure</h3>
+            <p>Change VM resources, hardware identity, and shared folders. Replace the disk of a stopped VM.</p>
+          </div>
+          <div class="card">
+            <div class="glyph" aria-hidden="true">☰</div>
+            <h3>Jobs you can watch</h3>
+            <p>See clone, import, export, create, pull, and cleanup jobs with their progress. Cancel a job that you no longer need.</p>
+          </div>
+          <div class="card">
+            <div class="glyph" aria-hidden="true">◐</div>
+            <h3>Menu bar and updates</h3>
+            <p>Control common VM actions from the menu bar. The app updates itself and waits until your jobs finish.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="install">
+        <h2>Install in a minute</h2>
+        <p class="sub">Tart Manager includes tart, so you do not need Homebrew or a separate install.</p>
+        <ol class="steps">
+          <li>Download the DMG from the <a href="https://github.com/AlexandrPkhm/TartManager/releases/latest">latest release</a>.</li>
+          <li>Open the DMG and drag <strong>Tart Manager</strong> to <strong>Applications</strong>.</li>
+          <li>Open Tart Manager, choose your VM storage folder (the default is <code>~/.tart</code>), and run a VM.</li>
+        </ol>
+        <div class="note">
+          <strong>First launch:</strong> the app is not notarized, so macOS blocks it one time.
+          On macOS 15 or later, open <strong>System Settings → Privacy &amp; Security</strong> and click
+          <strong>Open Anyway</strong>. On macOS 14, Control-click the app and choose <strong>Open</strong>.
+          Later updates install from inside the app with no warning.
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="row">
+        <p>Tart Manager is MIT licensed. The bundled tart is licensed under FSL-1.1-ALv2.</p>
+        <p>
+          <a href="https://github.com/AlexandrPkhm/TartManager">Source</a> ·
+          <a href="https://github.com/AlexandrPkhm/TartManager/blob/main/CHANGELOG.md">Changelog</a> ·
+          <a href="https://github.com/AlexandrPkhm/TartManager/issues">Report a bug</a>
+        </p>
+      </div>
+      <p style="margin-top:10px">Built on <a href="https://github.com/openai/tart">tart</a> by Cirrus Labs and OpenAI. Not affiliated with them.</p>
+    </footer>
+  </div>
+
+  <script>
+    // Show the live star count. If the GitHub API is not available, the button shows no count.
+    fetch("https://api.github.com/repos/AlexandrPkhm/TartManager")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && typeof d.stargazers_count === "number") {
+          document.getElementById("stars").textContent = d.stargazers_count.toLocaleString("en-US");
+        }
+      })
+      .catch(function () {});
+  </script>
+</body>
+</html>

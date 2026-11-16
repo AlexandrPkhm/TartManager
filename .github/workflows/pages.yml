@@ -1,0 +1,41 @@
+name: Pages
+
+# Publishes site/ and the README artwork in Assets/ to GitHub Pages.
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'Assets/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Do not cancel a deployment that has started.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      # The page reads its images from assets/. Copy them from Assets/ so they have one source.
+      - name: Assemble site
+        run: |
+          mkdir -p _site/assets
+          cp -R site/. _site/
+          cp Assets/AppIcon.png Assets/TartManager.png _site/assets/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
