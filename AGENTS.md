@@ -73,9 +73,9 @@ virtualization.
 │   ├── CODEOWNERS                 # Requests the maintainer's review on every pull request
 │   └── workflows/
 │       ├── ci.yml                 # GitHub Actions tests; release tags only, currently disabled
-│       ├── pages.yml              # Publishes Sites/ and Assets/ images to GitHub Pages
+│       ├── pages.yml              # Publishes Site/ and Assets/ images to GitHub Pages
 │       └── registry-catalog.yml   # Monthly registry scan; a change goes to a branch and an issue
-├── Sites/
+├── Site/
 │   └── index.html                 # Static project website; images come from Assets/ at deploy
 ├── README.md                      # User-facing product guide
 ├── CHANGELOG.md                   # Release history and Unreleased changes
@@ -355,9 +355,9 @@ environment.
   then refuses the ad-hoc `Sparkle.framework`. Sign nested code inside-out
   (`Autoupdate`, `Updater.app`, `Sparkle.framework`, then the app) and never
   use `codesign --deep`.
-- Keep `Sites/` plain static HTML with inline CSS and no build step or
+- Keep `Site/` plain static HTML with inline CSS and no build step or
   dependency. Reference images as `assets/<file>`; do not copy them into
-  `Sites/`, because `.github/workflows/pages.yml` copies them from `Assets/`.
+  `Site/`, because `.github/workflows/pages.yml` copies them from `Assets/`.
   When you change a feature claim on the site, keep it true to `README.md`.
 - The Homebrew cask lives in the separate repository
   `AlexandrPkhm/homebrew-tap` (`Casks/tart-manager.rb`). Keep the DMG name

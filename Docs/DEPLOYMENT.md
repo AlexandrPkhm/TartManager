@@ -446,13 +446,13 @@ signing identity, so plan for a manual install after any key change.
 ## Project Website
 
 The project website is https://alexandrpkhm.github.io/TartManager/. It is
-one static page, `Sites/index.html`, with no build step.
+one static page, `Site/index.html`, with no build step.
 
 | Item | Value |
 | --- | --- |
-| Source | `Sites/` and `Assets/AppIcon.png`, `Assets/TartManager.png` |
+| Source | `Site/` and `Assets/AppIcon.png`, `Assets/TartManager.png` |
 | Workflow | `.github/workflows/pages.yml` |
-| Trigger | Push to `main` that changes `Sites/`, `Assets/`, or the workflow; manual run |
+| Trigger | Push to `main` that changes `Site/`, `Assets/`, or the workflow; manual run |
 | Pages source | **GitHub Actions** (repository Settings → Pages) |
 | Network | The page reads the star count from `api.github.com` in the browser |
 
@@ -464,7 +464,7 @@ To preview the site locally, copy the files into one folder and serve it:
 
 ```sh
 mkdir -p /tmp/tm-site/assets
-cp -R Sites/. /tmp/tm-site/
+cp -R Site/. /tmp/tm-site/
 cp Assets/AppIcon.png Assets/TartManager.png /tmp/tm-site/assets/
 python3 -m http.server 8765 --directory /tmp/tm-site
 ```
