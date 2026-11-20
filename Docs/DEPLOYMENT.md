@@ -81,7 +81,7 @@ Scripts/package.sh --check-tart       # run only the newer-tart check
 | `--tart-pin-file PATH` | Reads the tart pin from `PATH`. The default is `Scripts/tart-pin.env`. |
 
 The artifact lands in `dist/TartManager-<version>.dmg`, and the last line
-prints its size (`==> Done: <path> (<size> MB)`). With tart 2.41.1 the DMG is
+prints its size (`==> Done: <path> (<size> MB)`). With tart 2.42.0 the DMG is
 about 30 MB, and the unpacked app is about 85 MB. With `--sign`,
 adding `--notarize` notarizes and staples the finished DMG. Set
 `NOTARY_PROFILE` to the name of a notarytool Keychain profile; the profile
@@ -108,7 +108,7 @@ The script embeds one pinned tart release from
 | File | Content |
 | --- | --- |
 | `Scripts/tart-pin.env` | `TART_VERSION` and `TART_SHA256` of the release asset `tart.tar.gz`. |
-| `Scripts/tart-LICENSE.txt` | The `LICENSE` of the pinned release, byte for byte, for the license check. Tart 2.41.1 uses FSL-1.1-ALv2. The app does not ship it. |
+| `Scripts/tart-LICENSE.txt` | The `LICENSE` of the pinned release, byte for byte, for the license check. Tart 2.42.0 uses FSL-1.1-ALv2. The app does not ship it. |
 | `.build/tart-cache/<version>/` | The downloaded `tart.tar.gz` and `tart_<version>_checksums.txt`. Git ignores `.build/`. |
 
 For each build, the script does these steps before it assembles the bundle:
