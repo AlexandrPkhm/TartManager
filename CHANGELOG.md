@@ -8,8 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-20
+
+### Added
+
+- Added installation with Homebrew:
+  `brew install --cask alexandrpkhm/tap/tart-manager`.
+
 ### Changed
 
+- Changed the bundled tart to 2.42.0.
 - Changed error and data-loss warning text to one red that stays readable in
   light and dark appearance.
 - Changed the tart banner and the error report to the app's own warning
